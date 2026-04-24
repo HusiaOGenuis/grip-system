@@ -3,8 +3,8 @@
 <body style="background:#0b1220;color:white;font-family:sans-serif">
 
 <h1>GRIP Dashboard</h1>
-<input id="email" placeholder="Enter Email"><br><br>
 
+<input id="email" placeholder="Enter Email"><br><br>
 <input id="apiKey" placeholder="Enter API Key"><br><br>
 
 <input type="file" id="file">
@@ -13,27 +13,12 @@
 <h2>Records</h2>
 <button onclick="loadRecords()">Load Records</button>
 
+<h2>Upgrade</h2>
+<button onclick="upgrade('basic')">Basic</button>
+<button onclick="upgrade('pro')">Pro</button>
+<button onclick="upgrade('enterprise')">Enterprise</button>
+
 <pre id="output"></pre>
-
-<script>
-async function upgrade() {
-    const key = document.getElementById("apiKey").value;
-    const email = document.getElementById("email").value;
-
-    let res = await fetch(API + "/paystack/initialize?email=" + email, {
-        method: "POST",
-        headers: {
-            "x-api-key": key
-        }
-    });
-
-    let data = await res.json();
-
-    window.location.href = data.data.authorization_url;
-}
-</script>
-<button onclick="upgrade()">Upgrade to PRO</button>
-
 
 <script>
 const API = window.location.origin;
@@ -45,13 +30,13 @@ async function upload() {
     let formData = new FormData();
     formData.append("file", file);
 
-    await fetch(API + "/upload", {
+    let res = await fetch(API + "/upload", {
         method: "POST",
         headers: { "x-api-key": key },
         body: formData
     });
 
-    alert("Upload complete");
+    alert(await res.text());
 }
 
 async function loadRecords() {
@@ -63,6 +48,19 @@ async function loadRecords() {
 
     let data = await res.json();
     document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+}
+
+async function upgrade(plan) {
+    const key = document.getElementById("apiKey").value;
+    const email = document.getElementById("email").value;
+
+    let res = await fetch(API + "/paystack/initialize?email=" + email + "&plan=" + plan, {
+        method: "POST",
+        headers: { "x-api-key": key }
+    });
+
+    let data = await res.json();
+    window.location.href = data.data.authorization_url;
 }
 </script>
 
