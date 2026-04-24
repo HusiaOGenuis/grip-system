@@ -3,6 +3,7 @@
 <body style="background:#0b1220;color:white;font-family:sans-serif">
 
 <h1>GRIP Dashboard</h1>
+<input id="email" placeholder="Enter Email"><br><br>
 
 <input id="apiKey" placeholder="Enter API Key"><br><br>
 
@@ -14,12 +15,12 @@
 
 <pre id="output"></pre>
 
-
 <script>
 async function upgrade() {
     const key = document.getElementById("apiKey").value;
+    const email = document.getElementById("email").value;
 
-    let res = await fetch(API + "/paystack/initialize?email=husia", {
+    let res = await fetch(API + "/paystack/initialize?email=" + email, {
         method: "POST",
         headers: {
             "x-api-key": key
@@ -31,7 +32,6 @@ async function upgrade() {
     window.location.href = data.data.authorization_url;
 }
 </script>
-
 <button onclick="upgrade()">Upgrade to PRO</button>
 
 
