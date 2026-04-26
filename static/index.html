@@ -37,9 +37,11 @@ const API_URL = window.location.origin;
 async function createUser() {
     const email = document.getElementById("email").value;
 
-    let res = await fetch(API_URL + "/create-user?email=" + email, { method: "POST" });
-    let data = await res.json();
+    let res = await fetch(API_URL + "/create-user?email=" + email, {
+        method: "POST"
+    });
 
+    let data = await res.json();
     document.getElementById("apiKey").value = data.api_key;
 }
 
@@ -58,7 +60,8 @@ async function upload() {
     });
 
     let data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
 // LOAD RECORDS
@@ -70,13 +73,11 @@ async function loadRecords() {
     });
 
     let data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
 // ANALYZE
-<script>
-const API_URL = window.location.origin;
-
 async function analyze() {
     const key = document.getElementById("apiKey").value;
 
@@ -89,24 +90,48 @@ async function analyze() {
     document.getElementById("output").innerHTML = `
         <h3>GRIP Intelligence Report</h3>
         Risk: ${data.risk.level}<br>
-        Score: ${data.risk.current_score}<br>
+        Score: ${data.risk.current_score}
     `;
-}
-</script>
-<script>
-async function analyze() {
-    const key = document.getElementById("apiKey").value;
 
-    let res = await fetch("/analyze", {
-        headers: { "x-api-key": key }
+    const ctx = document.getElementById("riskChart").getContext("2d");
+
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["Current", "Predicted"],
+            datasets: [{
+                label: "Risk",
+                data: [
+                    data.risk.current_score,
+                    data.risk.predicted_score
+                ]
+            }]
+        }
+    });
+}
+
+// PAYSTACK
+function upgrade() {
+    const email = document.getElementById("email").value;
+
+    let handler = PaystackPop.setup({
+        key: "pk_test_xxxxx",
+        email: email,
+        amount: 50000,
+        currency: "ZAR",
+
+        callback: function(response) {
+            fetch(API_URL + "/verify-payment/" + response.reference)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById("output").innerText =
+                        JSON.stringify(data, null, 2);
+                });
+        }
     });
 
-    let data = await res.json();
-
-    document.getElementById("output").innerHTML =
-        "Risk: " + data.risk.level;
+    handler.openIframe();
 }
-</script>
 </script>
 
 </body>
