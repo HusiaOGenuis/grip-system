@@ -74,34 +74,25 @@ async function loadRecords() {
 }
 
 // ANALYZE
-score = 0
-signals = []
+<script>
+const API_URL = window.location.origin;
 
-for r in records:
-    text = str(r).lower()
+async function analyze() {
+    const key = document.getElementById("apiKey").value;
 
-    if "fraud" in text:
-        score += 25
-        signals.append("Fraud signal")
+    let res = await fetch(API_URL + "/analyze", {
+        headers: { "x-api-key": key }
+    });
 
-    if "breach" in text:
-        score += 30
-        signals.append("Security breach")
+    let data = await res.json();
 
-    if "delay" in text:
-        score += 10
-        signals.append("Operational delay")
-
-    if "high" in text:
-        score += 15
-
-risk_score = min(100, score)
-
-level = (
-    "HIGH" if risk_score > 70 else
-    "MEDIUM" if risk_score > 30 else
-    "LOW"
-)
+    document.getElementById("output").innerHTML = `
+        <h3>GRIP Intelligence Report</h3>
+        Risk: ${data.risk.level}<br>
+        Score: ${data.risk.current_score}<br>
+    `;
+}
+</script>
 // PAYSTACK
 function upgrade() {
     const email = document.getElementById("email").value;
