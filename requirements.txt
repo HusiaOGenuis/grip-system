@@ -3,5 +3,3 @@ uvicorn
 psycopg2-binary
 python-multipart
 requests
-
-
