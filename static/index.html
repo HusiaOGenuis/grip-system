@@ -20,18 +20,23 @@
 <h2>Records</h2>
 <button onclick="loadRecords()">Load Records</button>
 
-<h2>Upgrade</h2>
 <h2>Analyze</h2>
 <button onclick="analyze()">Run Intelligence</button>
-<button onclick="upgrade('basic')">Basic</button>
-<button onclick="upgrade('pro')">Pro</button>
-<button onclick="upgrade('enterprise')">Enterprise</button>
+
+<h2>Upgrade</h2>
+<button onclick="upgrade()">Upgrade to Pro</button>
+
 <div id="output"></div>
 <canvas id="riskChart" width="400" height="200"></canvas>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
 const API_URL = "https://grip-backend-drjc.onrender.com";
+
+// ----------------------
+// ANALYZE
+// ----------------------
 async function analyze() {
     const key = document.getElementById("apiKey").value;
 
@@ -41,7 +46,6 @@ async function analyze() {
 
     let data = await res.json();
 
-    // TEXT OUTPUT
     let html = `
         <h3>GRIP Intelligence Report</h3>
         <b>Risk Level:</b> ${data.risk.level}<br>
@@ -49,7 +53,7 @@ async function analyze() {
         <b>Predicted Score:</b> ${data.risk.predicted_score}<br><br>
 
         <b>Alerts:</b><br>
-        ${data.alerts.map(a => "⚠️ " + a).join("<br>")}<br><br>
+        ${data.alerts.join("<br>")}<br><br>
 
         <b>Top Clusters:</b><br>
         ${data.clusters.map(c => `${c.pattern} (${c.count})`).join("<br>")}
@@ -57,7 +61,6 @@ async function analyze() {
 
     document.getElementById("output").innerHTML = html;
 
-    // CHART
     const ctx = document.getElementById("riskChart").getContext("2d");
 
     new Chart(ctx, {
@@ -70,7 +73,9 @@ async function analyze() {
             }]
         }
     });
-}// ----------------------
+}
+
+// ----------------------
 // CREATE USER
 // ----------------------
 async function createUser() {
@@ -96,9 +101,7 @@ async function upload() {
 
     let res = await fetch(API_URL + "/upload", {
         method: "POST",
-        headers: {
-            "x-api-key": key
-        },
+        headers: { "x-api-key": key },
         body: formData
     });
 
@@ -114,10 +117,7 @@ async function loadRecords() {
     const key = document.getElementById("apiKey").value;
 
     let res = await fetch(API_URL + "/records", {
-        method: "GET",
-        headers: {
-            "x-api-key": key
-        }
+        headers: { "x-api-key": key }
     });
 
     let data = await res.json();
@@ -126,9 +126,9 @@ async function loadRecords() {
 }
 
 // ----------------------
-// UPGRADE (temporary)
+// UPGRADE (PAYSTACK)
 // ----------------------
-async function upgrade(plan) {
+function upgrade() {
     const email = document.getElementById("email").value;
     const key = document.getElementById("apiKey").value;
 
@@ -139,12 +139,8 @@ async function upgrade(plan) {
         currency: "ZAR",
 
         callback: function(response) {
-
             fetch(API_URL + "/verify-payment/" + response.reference, {
-                method: "GET",
-                headers: {
-                    "x-api-key": key
-                }
+                headers: { "x-api-key": key }
             })
             .then(res => res.json())
             .then(data => {
