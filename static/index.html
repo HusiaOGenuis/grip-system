@@ -34,50 +34,7 @@
 <script>
 const API_URL = "https://grip-backend-drjc.onrender.com";
 
-// ----------------------
-// ANALYZE
-// ----------------------
-async function analyze() {
-    const key = document.getElementById("apiKey").value;
-
-    let res = await fetch(API_URL + "/analyze", {
-        headers: { "x-api-key": key }
-    });
-
-    let data = await res.json();
-
-    let html = `
-        <h3>GRIP Intelligence Report</h3>
-        <b>Risk Level:</b> ${data.risk.level}<br>
-        <b>Current Score:</b> ${data.risk.current_score}<br>
-        <b>Predicted Score:</b> ${data.risk.predicted_score}<br><br>
-
-        <b>Alerts:</b><br>
-        ${data.alerts.join("<br>")}<br><br>
-
-        <b>Top Clusters:</b><br>
-        ${data.clusters.map(c => `${c.pattern} (${c.count})`).join("<br>")}
-    `;
-
-    document.getElementById("output").innerHTML = html;
-
-    const ctx = document.getElementById("riskChart").getContext("2d");
-
-    new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: ["Current Risk", "Predicted Risk"],
-            datasets: [{
-                label: "Risk Score",
-                data: [data.risk.current_score, data.risk.predicted_score]
-            }]
-        }
-    });
-}
-
-// ----------------------
 // CREATE USER
-// ----------------------
 async function createUser() {
     const email = document.getElementById("email").value;
 
@@ -89,9 +46,7 @@ async function createUser() {
     document.getElementById("apiKey").value = data.api_key;
 }
 
-// ----------------------
 // UPLOAD
-// ----------------------
 async function upload() {
     const fileInput = document.getElementById("file");
     const key = document.getElementById("apiKey").value;
@@ -110,9 +65,7 @@ async function upload() {
         JSON.stringify(data, null, 2);
 }
 
-// ----------------------
 // LOAD RECORDS
-// ----------------------
 async function loadRecords() {
     const key = document.getElementById("apiKey").value;
 
@@ -125,9 +78,39 @@ async function loadRecords() {
         JSON.stringify(data, null, 2);
 }
 
-// ----------------------
-// UPGRADE (PAYSTACK)
-// ----------------------
+// ANALYZE
+async function analyze() {
+    const key = document.getElementById("apiKey").value;
+
+    let res = await fetch(API_URL + "/analyze", {
+        headers: { "x-api-key": key }
+    });
+
+    let data = await res.json();
+
+    document.getElementById("output").innerHTML = `
+        <h3>GRIP Intelligence Report</h3>
+        Risk Level: ${data.risk.level}<br>
+        Current Score: ${data.risk.current_score}<br>
+        Predicted Score: ${data.risk.predicted_score}<br><br>
+        Alerts:<br>${data.alerts.join("<br>")}
+    `;
+
+    const ctx = document.getElementById("riskChart").getContext("2d");
+
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["Current", "Predicted"],
+            datasets: [{
+                label: "Risk",
+                data: [data.risk.current_score, data.risk.predicted_score]
+            }]
+        }
+    });
+}
+
+// PAYSTACK UPGRADE
 function upgrade() {
     const email = document.getElementById("email").value;
     const key = document.getElementById("apiKey").value;
@@ -147,10 +130,6 @@ function upgrade() {
                 document.getElementById("output").innerText =
                     JSON.stringify(data, null, 2);
             });
-        },
-
-        onClose: function() {
-            alert("Payment cancelled");
         }
     });
 
