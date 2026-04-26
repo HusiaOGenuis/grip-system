@@ -26,27 +26,50 @@
 <button onclick="upgrade('basic')">Basic</button>
 <button onclick="upgrade('pro')">Pro</button>
 <button onclick="upgrade('enterprise')">Enterprise</button>
-
 <div id="output"></div>
+<canvas id="riskChart" width="400" height="200"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 async function analyze() {
     const key = document.getElementById("apiKey").value;
 
     let res = await fetch(API_URL + "/analyze", {
-        method: "GET",
-        headers: {
-            "x-api-key": key
-        }
+        headers: { "x-api-key": key }
     });
 
     let data = await res.json();
 
-    document.getElementById("output").innerText =
-        JSON.stringify(data, null, 2);
-}
-const API_URL = "http://127.0.0.1:8000";
+    // TEXT OUTPUT
+    let html = `
+        <h3>GRIP Intelligence Report</h3>
+        <b>Risk Level:</b> ${data.risk.level}<br>
+        <b>Current Score:</b> ${data.risk.current_score}<br>
+        <b>Predicted Score:</b> ${data.risk.predicted_score}<br><br>
 
-// ----------------------
+        <b>Alerts:</b><br>
+        ${data.alerts.map(a => "⚠️ " + a).join("<br>")}<br><br>
+
+        <b>Top Clusters:</b><br>
+        ${data.clusters.map(c => `${c.pattern} (${c.count})`).join("<br>")}
+    `;
+
+    document.getElementById("output").innerHTML = html;
+
+    // CHART
+    const ctx = document.getElementById("riskChart").getContext("2d");
+
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["Current Risk", "Predicted Risk"],
+            datasets: [{
+                label: "Risk Score",
+                data: [data.risk.current_score, data.risk.predicted_score]
+            }]
+        }
+    });
+}// ----------------------
 // CREATE USER
 // ----------------------
 async function createUser() {
