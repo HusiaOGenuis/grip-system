@@ -105,7 +105,29 @@ async function analyze() {
 
 // PAYSTACK
 function upgrade() {
-    alert("Payment simulation active");
+    const email = document.getElementById("email").value;
+    const key = document.getElementById("apiKey").value;
+
+    let handler = PaystackPop.setup({
+        key: "pk_test_XXXXXXX",
+        email: email,
+        amount: 50000,
+        currency: "ZAR",
+
+        callback: function(response) {
+            fetch(API_URL + "/verify-payment/" + response.reference, {
+                headers: { "x-api-key": key }
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("output").innerText =
+                    JSON.stringify(data, null, 2);
+            });
+        }
+    });
+
+    handler.openIframe();
+}
 }
 </script>
 
