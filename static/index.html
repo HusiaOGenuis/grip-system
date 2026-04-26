@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <title>GRIP Dashboard</title>
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+</head>
+
 <body style="background:#0b1220;color:white;font-family:sans-serif">
 
 <h1>GRIP Dashboard</h1>
 
 <input id="email" placeholder="Enter Email"><br><br>
-<input id="apiKey" placeholder="Enter API Key"><br><br>
+<button onclick="createUser()">Generate API Key</button><br><br>
+
+<input id="apiKey" placeholder="Enter API key"><br><br>
 
 <input type="file" id="file">
 <button onclick="upload()">Upload CSV</button>
@@ -14,53 +21,120 @@
 <button onclick="loadRecords()">Load Records</button>
 
 <h2>Upgrade</h2>
+<h2>Analyze</h2>
+<button onclick="analyze()">Run Intelligence</button>
 <button onclick="upgrade('basic')">Basic</button>
 <button onclick="upgrade('pro')">Pro</button>
 <button onclick="upgrade('enterprise')">Enterprise</button>
 
-<pre id="output"></pre>
-
+<div id="output"></div>
 <script>
-const API = window.location.origin;
+async function analyze() {
+    const key = document.getElementById("apiKey").value;
 
+    let res = await fetch(API_URL + "/analyze", {
+        method: "GET",
+        headers: {
+            "x-api-key": key
+        }
+    });
+
+    let data = await res.json();
+
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
+}
+const API_URL = "http://127.0.0.1:8000";
+
+// ----------------------
+// CREATE USER
+// ----------------------
+async function createUser() {
+    const email = document.getElementById("email").value;
+
+    let res = await fetch(API_URL + "/create-user?email=" + email, {
+        method: "POST"
+    });
+
+    let data = await res.json();
+    document.getElementById("apiKey").value = data.api_key;
+}
+
+// ----------------------
+// UPLOAD
+// ----------------------
 async function upload() {
-    const file = document.getElementById("file").files[0];
+    const fileInput = document.getElementById("file");
     const key = document.getElementById("apiKey").value;
 
     let formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", fileInput.files[0]);
 
-    let res = await fetch(API + "/upload", {
+    let res = await fetch(API_URL + "/upload", {
         method: "POST",
-        headers: { "x-api-key": key },
+        headers: {
+            "x-api-key": key
+        },
         body: formData
     });
 
-    alert(await res.text());
+    let data = await res.json();
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
+// ----------------------
+// LOAD RECORDS
+// ----------------------
 async function loadRecords() {
     const key = document.getElementById("apiKey").value;
 
-    let res = await fetch(API + "/records", {
-        headers: { "x-api-key": key }
+    let res = await fetch(API_URL + "/records", {
+        method: "GET",
+        headers: {
+            "x-api-key": key
+        }
     });
 
     let data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
+// ----------------------
+// UPGRADE (temporary)
+// ----------------------
 async function upgrade(plan) {
-    const key = document.getElementById("apiKey").value;
     const email = document.getElementById("email").value;
+    const key = document.getElementById("apiKey").value;
 
-    let res = await fetch(API + "/paystack/initialize?email=" + email + "&plan=" + plan, {
-        method: "POST",
-        headers: { "x-api-key": key }
+    let handler = PaystackPop.setup({
+        key: "pk_test_f3eb851da078147dc1ea7535ea839b6357f4aa58",
+        email: email,
+        amount: 50000,
+        currency: "ZAR",
+
+        callback: function(response) {
+
+            fetch(API_URL + "/verify-payment/" + response.reference, {
+                method: "GET",
+                headers: {
+                    "x-api-key": key
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("output").innerText =
+                    JSON.stringify(data, null, 2);
+            });
+        },
+
+        onClose: function() {
+            alert("Payment cancelled");
+        }
     });
 
-    let data = await res.json();
-    window.location.href = data.data.authorization_url;
+    handler.openIframe();
 }
 </script>
 

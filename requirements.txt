@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-sqlalchemy
-pandas
-requests
+psycopg2-binary
 python-multipart
+requests
