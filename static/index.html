@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>GRIP Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
 
@@ -24,35 +25,31 @@
 <button onclick="analyze()">Run Intelligence</button>
 
 <h2>Upgrade</h2>
-<button onclick="upgrade()">Upgrade to Pro</button>
+<button onclick="upgrade()">Upgrade</button>
 
 <div id="output"></div>
 <canvas id="riskChart" width="400" height="200"></canvas>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-const API_URL = "https://grip-backend-drjc.onrender.com";
+const API_URL = window.location.origin;
 
 // CREATE USER
 async function createUser() {
     const email = document.getElementById("email").value;
 
-    let res = await fetch(API_URL + "/create-user?email=" + email, {
-        method: "POST"
-    });
-
+    let res = await fetch(API_URL + "/create-user?email=" + email, { method: "POST" });
     let data = await res.json();
+
     document.getElementById("apiKey").value = data.api_key;
 }
 
 // UPLOAD
 async function upload() {
-    const fileInput = document.getElementById("file");
     const key = document.getElementById("apiKey").value;
+    const file = document.getElementById("file").files[0];
 
     let formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    formData.append("file", file);
 
     let res = await fetch(API_URL + "/upload", {
         method: "POST",
@@ -61,8 +58,7 @@ async function upload() {
     });
 
     let data = await res.json();
-    document.getElementById("output").innerText =
-        JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
 }
 
 // LOAD RECORDS
@@ -74,8 +70,7 @@ async function loadRecords() {
     });
 
     let data = await res.json();
-    document.getElementById("output").innerText =
-        JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
 }
 
 // ANALYZE
@@ -90,10 +85,8 @@ async function analyze() {
 
     document.getElementById("output").innerHTML = `
         <h3>GRIP Intelligence Report</h3>
-        Risk Level: ${data.risk.level}<br>
-        Current Score: ${data.risk.current_score}<br>
-        Predicted Score: ${data.risk.predicted_score}<br><br>
-        Alerts:<br>${data.alerts.join("<br>")}
+        Risk: ${data.risk.level}<br>
+        Score: ${data.risk.current_score}
     `;
 
     const ctx = document.getElementById("riskChart").getContext("2d");
@@ -110,30 +103,9 @@ async function analyze() {
     });
 }
 
-// PAYSTACK UPGRADE
+// PAYSTACK
 function upgrade() {
-    const email = document.getElementById("email").value;
-    const key = document.getElementById("apiKey").value;
-
-    let handler = PaystackPop.setup({
-        key: "pk_test_f3eb851da078147dc1ea7535ea839b6357f4aa58",
-        email: email,
-        amount: 50000,
-        currency: "ZAR",
-
-        callback: function(response) {
-            fetch(API_URL + "/verify-payment/" + response.reference, {
-                headers: { "x-api-key": key }
-            })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById("output").innerText =
-                    JSON.stringify(data, null, 2);
-            });
-        }
-    });
-
-    handler.openIframe();
+    alert("Payment simulation active");
 }
 </script>
 
