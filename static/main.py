@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import uuid
 import csv
 import io
+import os
 
 from psycopg.types.json import Json
 
@@ -17,14 +18,25 @@ from .reports import generate_pdf
 
 app = FastAPI()
 
+
 # -----------------------------
-# INIT DB (CONTRACT SAFE)
+# ENV CONTRACT (HARD ENFORCED)
+# -----------------------------
+REQUIRED_ENV = ["DATABASE_URL", "PAYSTACK_SECRET_KEY"]
+
+def validate_env():
+    missing = [k for k in REQUIRED_ENV if not os.getenv(k)]
+    if missing:
+        raise RuntimeError(f"Missing ENV: {missing}")
+
+
+# -----------------------------
+# INIT DB (SAFE)
 # -----------------------------
 def init_db():
     with get_conn() as conn:
         with conn.cursor() as cur:
 
-            # USERS
             cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 api_key TEXT PRIMARY KEY,
@@ -33,7 +45,6 @@ def init_db():
             )
             """)
 
-            # DATASETS
             cur.execute("""
             CREATE TABLE IF NOT EXISTS datasets (
                 id TEXT PRIMARY KEY,
@@ -43,7 +54,6 @@ def init_db():
             )
             """)
 
-            # PAYMENTS
             cur.execute("""
             CREATE TABLE IF NOT EXISTS payments (
                 id TEXT PRIMARY KEY,
@@ -53,7 +63,6 @@ def init_db():
             )
             """)
 
-            # REPORTS
             cur.execute("""
             CREATE TABLE IF NOT EXISTS reports (
                 id TEXT PRIMARY KEY,
@@ -63,8 +72,11 @@ def init_db():
             )
             """)
 
-# Run DB init ON START
-init_db()
+
+@app.on_event("startup")
+def startup():
+    validate_env()
+    init_db()
 
 
 # -----------------------------
@@ -74,9 +86,10 @@ init_db()
 def root():
     return {"status": "GRIP API running"}
 
+
 @app.get("/version")
 def version():
-    return {"version": "CONTRACT_BUILD_V2"}
+    return {"version": "CONTRACT_BUILD_FINAL"}
 
 
 # -----------------------------
@@ -103,7 +116,7 @@ def create_user(email: str):
 
 
 # -----------------------------
-# LIST DATASETS
+# DATASETS
 # -----------------------------
 @app.get("/datasets")
 def list_datasets(api_key: str = Depends(get_current_user)):
@@ -151,7 +164,7 @@ async def upload(
 
 
 # -----------------------------
-# ANALYZE (CONTRACT LOCKED)
+# ANALYZE
 # -----------------------------
 @app.post("/analyze", response_model=AnalysisOut)
 def analyze(dataset=Depends(get_dataset)):
@@ -161,47 +174,65 @@ def analyze(dataset=Depends(get_dataset)):
         "dataset_id": dataset["id"],
         **result
     }
+
+
 # -----------------------------
 # PAYMENT INIT
 # -----------------------------
 @app.post("/pay")
 def pay(api_key: str = Depends(get_current_user)):
+
     result = initialize_payment(api_key, "user@email.com")
 
     if "error" in result:
-        return {
-            "status": "failed",
-            "detail": result["error"]
-        }
+        raise HTTPException(status_code=400, detail=result["error"])
 
-    return {
-        "status": "success",
-        "payment_url": result["payment_url"],
-        "reference": result["reference"]
-    }
+    reference = result["reference"]
 
+    # STORE PAYMENT
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO payments (id, api_key, reference, status)
+                VALUES (%s, %s, %s, %s)
+            """, (
+                str(uuid.uuid4()),
+                api_key,
+                reference,
+                "initialized"
+            ))
 
+    return result
 # -----------------------------
 # PAYMENT VERIFY
 # -----------------------------
 @app.get("/verify-payment")
 def verify(reference: str, api_key: str = Depends(get_current_user)):
+
     status = verify_payment(reference)
 
-    if status == "success":
-        # mark user as paid
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE users SET is_paid=TRUE WHERE api_key=%s",
-                    (api_key,)
-                )
+    with get_conn() as conn:
+        with conn.cursor() as cur:
 
-    return {
-        "status": status
-    }
+            # update payment status
+            cur.execute("""
+                UPDATE payments
+                SET status=%s
+                WHERE reference=%s
+            """, (status, reference))
+
+            # unlock user if successful
+            if status == "success":
+                cur.execute("""
+                    UPDATE users
+                    SET is_paid=TRUE
+                    WHERE api_key=%s
+                """, (api_key,))
+
+    return {"status": status}
+
 # -----------------------------
-# REPORT GENERATION
+# REPORT (LOCKED)
 # -----------------------------
 @app.post("/report")
 def report(
@@ -221,7 +252,7 @@ def report(
     score = grip_score(dataset["data"])
 
     file_path = generate_pdf(dataset["id"], analysis, score)
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE;
+
     return {
         "analysis": analysis,
         "score": score,
@@ -230,6 +261,40 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE;
 
 
 # -----------------------------
-# FRONTEND (LAST ALWAYS)
+# FRONTEND (ALWAYS LAST)
 # -----------------------------
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
+@app.get("/dashboard")
+def dashboard(api_key: str = Depends(get_current_user)):
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+
+            # datasets
+            cur.execute("""
+                SELECT id, filename
+                FROM datasets
+                WHERE api_key=%s
+                ORDER BY id DESC
+            """, (api_key,))
+            datasets = cur.fetchall()
+
+            # payments
+            cur.execute("""
+                SELECT reference, status
+                FROM payments
+                WHERE api_key=%s
+                ORDER BY reference DESC
+            """, (api_key,))
+            payments = cur.fetchall()
+
+    return {
+        "datasets": [
+            {"dataset_id": d[0], "filename": d[1]}
+            for d in datasets
+        ],
+        "payments": [
+            {"reference": p[0], "status": p[1]}
+            for p in payments
+        ]
+    }

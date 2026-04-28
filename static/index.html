@@ -1,84 +1,120 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GRIP System</title>
+    <title>GRIP System</title>
 </head>
-<body>
-<!DOCTYPE html>
-<html>
 <body>
 
 <h2>GRIP Dashboard</h2>
 
 <input id="apiKey" placeholder="API Key">
-<button onclick="load()">Load Datasets</button>
+<button onclick="loadDatasets()">Load Datasets</button>
+<button onclick="loadDashboard()">Load Dashboard</button>
 
 <ul id="list"></ul>
 
-<script>
-async function load() {
-  const key = document.getElementById("apiKey").value;
+<hr>
 
-  const res = await fetch("/datasets", {
-    headers: {"x-api-key": key}
-  });
-
-  const data = await res.json();
-
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-
-  data.forEach(d => {
-    const li = document.createElement("li");
-    li.innerText = d[0] + " - " + d[1];
-    list.appendChild(li);
-  });
-}
-</script>
-
-</body>
-</html>
 <h2>Upload CSV</h2>
 <input type="file" id="file">
-<input type="text" id="apiKey" placeholder="API Key">
 <button onclick="upload()">Upload</button>
 
-<h2>Analyze</h2>
+<hr>
+
+<h2>Analyze Dataset</h2>
 <input type="text" id="datasetId" placeholder="Dataset ID">
 <button onclick="analyze()">Analyze</button>
 
+<hr>
+
+<h2>Output</h2>
 <pre id="output"></pre>
 
 <script>
+
+// -----------------------------
+// LOAD DATASETS
+// -----------------------------
+async function loadDatasets() {
+    const key = document.getElementById("apiKey").value;
+
+    const res = await fetch("/datasets", {
+        headers: {"x-api-key": key}
+    });
+
+    const data = await res.json();
+
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+
+    data.forEach(d => {
+        const li = document.createElement("li");
+        li.innerText = d.dataset_id + " - " + d.filename;
+        list.appendChild(li);
+    });
+}
+
+// -----------------------------
+// DASHBOARD
+// -----------------------------
+async function loadDashboard() {
+    const key = document.getElementById("apiKey").value;
+
+    const res = await fetch("/dashboard", {
+        headers: {"x-api-key": key}
+    });
+
+    const data = await res.json();
+
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
+}
+
+// -----------------------------
+// UPLOAD
+// -----------------------------
 async function upload() {
-  const file = document.getElementById("file").files[0];
-  const key = document.getElementById("apiKey").value;
+    const file = document.getElementById("file").files[0];
+    const key = document.getElementById("apiKey").value;
 
-  const formData = new FormData();
-  formData.append("file", file);
+    if (!file) {
+        alert("Select a file first");
+        return;
+    }
 
-  const res = await fetch("/upload", {
-    method: "POST",
-    headers: { "x-api-key": key },
-    body: formData
-  });
+    const formData = new FormData();
+    formData.append("file", file);
 
-  const data = await res.json();
-  document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    const res = await fetch("/upload", {
+        method: "POST",
+        headers: {"x-api-key": key},
+        body: formData
+    });
+
+    const data = await res.json();
+
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
+// -----------------------------
+// ANALYZE
+// -----------------------------
 async function analyze() {
-  const id = document.getElementById("datasetId").value;
-  const key = document.getElementById("apiKey").value;
+    const id = document.getElementById("datasetId").value;
+    const key = document.getElementById("apiKey").value;
 
-  const res = await fetch(`/analyze?dataset_id=${id}`, {
-    method: "POST",
-    headers: { "x-api-key": key }
-  });
+    const res = await fetch(`/analyze?dataset_id=${id}`, {
+        method: "POST",
+        headers: {"x-api-key": key}
+    });
 
-  const data = await res.json();
-  document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    const data = await res.json();
+
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
+
 </script>
 
 </body>
