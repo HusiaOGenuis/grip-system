@@ -16,14 +16,12 @@ from .services import analyze_data
 from .payments import initialize_payment, verify_payment
 from .scoring import grip_score
 from .reports import generate_pdf
-from fastapi.responses import FileResponse
-import os
 
+# ✅ CREATE APP FIRST
+app = FastAPI()
 @app.get("/")
 def serve_dashboard():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    index_path = os.path.join(base_dir, "..", "static", "index.html")
-    return FileResponse(index_path)
+    return FileResponse("static/index.html")
 app = FastAPI()
 
 # -----------------------------
@@ -323,4 +321,4 @@ def dashboard(api_key: str = Depends(get_current_user)):
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
 
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
