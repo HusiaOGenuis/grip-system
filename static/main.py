@@ -21,8 +21,7 @@ from .reports import generate_pdf
 app = FastAPI()
 @app.get("/")
 def serve_dashboard():
-    return FileResponse("static/index.html")
-app = FastAPI()
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))app = FastAPI()
 
 # -----------------------------
 # ENV VALIDATION
@@ -318,7 +317,7 @@ def dashboard(api_key: str = Depends(get_current_user)):
 # -----------------------------
 # STATIC FRONTEND
 # -----------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
