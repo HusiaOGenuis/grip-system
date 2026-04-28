@@ -1,7 +1,6 @@
-from fastapi.responses import FileResponse
-import os
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 import uuid
 import csv
@@ -20,9 +19,8 @@ from .reports import generate_pdf
 
 app = FastAPI()
 
-
 # -----------------------------
-# ENV CONTRACT (HARD ENFORCED)
+# ENV VALIDATION
 # -----------------------------
 REQUIRED_ENV = ["DATABASE_URL", "PAYSTACK_SECRET_KEY"]
 
@@ -31,9 +29,8 @@ def validate_env():
     if missing:
         raise RuntimeError(f"Missing ENV: {missing}")
 
-
 # -----------------------------
-# INIT DB (SAFE)
+# DB INIT
 # -----------------------------
 def init_db():
     with get_conn() as conn:
@@ -43,6 +40,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 api_key TEXT PRIMARY KEY,
                 email TEXT UNIQUE,
+                password TEXT,
                 is_paid BOOLEAN DEFAULT FALSE
             )
             """)
@@ -74,24 +72,20 @@ def init_db():
             )
             """)
 
-
 @app.on_event("startup")
 def startup():
     validate_env()
     init_db()
 
-
 # -----------------------------
-# ROOT
+# VERSION
 # -----------------------------
-
 @app.get("/version")
 def version():
-    return {"version": "CONTRACT_BUILD_FINAL"}
-
+    return {"version": "GRIP_STABLE_V1"}
 
 # -----------------------------
-# CREATE USER
+# AUTH
 # -----------------------------
 @app.post("/register")
 def register(email: str, password: str):
@@ -109,6 +103,7 @@ def register(email: str, password: str):
             """, (api_key, email, password))
 
             return {"api_key": api_key}
+
 @app.post("/login")
 def login(email: str, password: str):
     with get_conn() as conn:
@@ -124,6 +119,7 @@ def login(email: str, password: str):
                 raise HTTPException(401, "INVALID_CREDENTIALS")
 
             return {"api_key": row[0]}
+
 # -----------------------------
 # DATASETS
 # -----------------------------
@@ -137,11 +133,7 @@ def list_datasets(api_key: str = Depends(get_current_user)):
             )
             rows = cur.fetchall()
 
-            return [
-                {"dataset_id": r[0], "filename": r[1]}
-                for r in rows
-            ]
-
+    return [{"dataset_id": r[0], "filename": r[1]} for r in rows]
 
 # -----------------------------
 # UPLOAD
@@ -158,7 +150,7 @@ async def upload(
     parsed = [row for row in reader]
 
     if not parsed:
-        raise HTTPException(status_code=400, detail="EMPTY_CSV")
+        raise HTTPException(400, "EMPTY_CSV")
 
     dataset_id = str(uuid.uuid4())
 
@@ -170,7 +162,6 @@ async def upload(
             """, (dataset_id, api_key, file.filename, Json(parsed)))
 
     return {"dataset_id": dataset_id}
-"reports": [{"report_id": r[0]} for r in reports]
 
 # -----------------------------
 # ANALYZE
@@ -178,76 +169,54 @@ async def upload(
 @app.post("/analyze", response_model=AnalysisOut)
 def analyze(dataset=Depends(get_dataset)):
     result = analyze_data(dataset["data"])
-
-    return {
-        "dataset_id": dataset["id"],
-        **result
-    }
-
+    return {"dataset_id": dataset["id"], **result}
 
 # -----------------------------
 # PAYMENT INIT
 # -----------------------------
 @app.post("/pay")
 def pay(api_key: str = Depends(get_current_user)):
-
     result = initialize_payment(api_key, "user@email.com")
 
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        raise HTTPException(400, result["error"])
 
-    reference = result["reference"]
+    reference = result.get("reference")
 
-    # STORE PAYMENT
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO payments (id, api_key, reference, status)
                 VALUES (%s, %s, %s, %s)
-            """, (
-                str(uuid.uuid4()),
-                api_key,
-                reference,
-                "initialized"
-            ))
+            """, (str(uuid.uuid4()), api_key, reference, "initialized"))
 
     return result
+
 # -----------------------------
 # PAYMENT VERIFY
 # -----------------------------
 @app.get("/verify-payment")
 def verify(reference: str, api_key: str = Depends(get_current_user)):
-
     status = verify_payment(reference)
 
     with get_conn() as conn:
         with conn.cursor() as cur:
-
-            # update payment status
             cur.execute("""
-                UPDATE payments
-                SET status=%s
-                WHERE reference=%s
+                UPDATE payments SET status=%s WHERE reference=%s
             """, (status, reference))
 
-            # unlock user if successful
             if status == "success":
                 cur.execute("""
-                    UPDATE users
-                    SET is_paid=TRUE
-                    WHERE api_key=%s
+                    UPDATE users SET is_paid=TRUE WHERE api_key=%s
                 """, (api_key,))
 
     return {"status": status}
 
 # -----------------------------
-# REPORT (LOCKED)
+# REPORT
 # -----------------------------
 @app.post("/report")
-def report(
-    dataset=Depends(get_dataset),
-    api_key: str = Depends(get_current_user)
-):
+def report(dataset=Depends(get_dataset), api_key: str = Depends(get_current_user)):
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -255,57 +224,96 @@ def report(
             row = cur.fetchone()
 
             if not row or not row[0]:
-                raise HTTPException(status_code=402, detail="PAYMENT_REQUIRED")
+                raise HTTPException(402, "PAYMENT_REQUIRED")
 
     analysis = analyze_data(dataset["data"])
     score = grip_score(dataset["data"])
 
     file_path = generate_pdf(dataset["id"], analysis, score)
 
+    report_id = str(uuid.uuid4())
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO reports (id, dataset_id, api_key, report_json)
+                VALUES (%s, %s, %s, %s)
+            """, (
+                report_id,
+                dataset["id"],
+                api_key,
+                Json({
+                    "analysis": analysis,
+                    "score": score,
+                    "file": file_path
+                })
+            ))
+
     return {
+        "report_id": report_id,
         "analysis": analysis,
         "score": score,
         "report_file": file_path
     }
 
+# -----------------------------
+# REPORT DOWNLOAD
+# -----------------------------
+@app.get("/download-report/{report_id}")
+def download_report(report_id: str, api_key: str = Depends(get_current_user)):
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT report_json FROM reports
+                WHERE id=%s AND api_key=%s
+            """, (report_id, api_key))
+
+            row = cur.fetchone()
+
+            if not row:
+                raise HTTPException(404, "REPORT_NOT_FOUND")
+
+            file_path = row[0]["file"]
+
+    return FileResponse(file_path, filename="report.pdf")
 
 # -----------------------------
-# FRONTEND (ALWAYS LAST)
+# DASHBOARD API
 # -----------------------------
 @app.get("/dashboard")
 def dashboard(api_key: str = Depends(get_current_user)):
-cur.execute("""
-    SELECT id FROM reports WHERE api_key=%s ORDER BY id DESC
-""", (api_key,))
-reports = cur.fetchall()
     with get_conn() as conn:
         with conn.cursor() as cur:
 
-            # datasets
             cur.execute("""
-                SELECT id, filename
-                FROM datasets
-                WHERE api_key=%s
-                ORDER BY id DESC
+                SELECT id, filename FROM datasets
+                WHERE api_key=%s ORDER BY id DESC
             """, (api_key,))
             datasets = cur.fetchall()
 
-            # payments
             cur.execute("""
-                SELECT reference, status
-                FROM payments
-                WHERE api_key=%s
-                ORDER BY reference DESC
+                SELECT reference, status FROM payments
+                WHERE api_key=%s ORDER BY reference DESC
             """, (api_key,))
             payments = cur.fetchall()
 
+            cur.execute("""
+                SELECT id FROM reports
+                WHERE api_key=%s ORDER BY id DESC
+            """, (api_key,))
+            reports = cur.fetchall()
+
     return {
-        "datasets": [
-            {"dataset_id": d[0], "filename": d[1]}
-            for d in datasets
-        ],
-        "payments": [
-            {"reference": p[0], "status": p[1]}
-            for p in payments
-        ]
+        "datasets": [{"dataset_id": d[0], "filename": d[1]} for d in datasets],
+        "payments": [{"reference": p[0], "status": p[1]} for p in payments],
+        "reports": [{"report_id": r[0]} for r in reports]
     }
+
+# -----------------------------
+# STATIC FRONTEND
+# -----------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
+
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
