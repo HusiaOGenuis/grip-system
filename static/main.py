@@ -8,7 +8,7 @@ from .db import get_conn
 from .deps import get_current_user, get_dataset
 from .models import DatasetOut, AnalysisOut
 from .services import analyze_data
-
+from .payments import initialize_payment, verify_payment
 app = FastAPI()
 
 # -----------------------------
@@ -30,7 +30,19 @@ with get_conn() as conn:
             parsed_json JSONB
         )
         """)
+CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    api_key TEXT,
+    reference TEXT,
+    status TEXT
+);
 
+CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY,
+    dataset_id TEXT,
+    api_key TEXT,
+    report_json JSONB
+);
 # -----------------------------
 # ROOT
 # -----------------------------
@@ -105,3 +117,17 @@ def analyze(dataset=Depends(get_dataset)):
 # FRONTEND
 # -----------------------------
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
+# -----------------------------
+# Payment Init
+# -----------------------------
+@app.post("/pay")
+def pay(api_key: str = Depends(get_current_user)):
+    url = initialize_payment(api_key, "user@email.com")
+    return {"payment_url": url}
+# -----------------------------
+# Payment Verify
+# -----------------------------
+@app.get("/verify-payment")
+def verify(reference: str):
+    status = verify_payment(reference)
+    return {"status": status}

@@ -4,7 +4,40 @@
   <title>GRIP System</title>
 </head>
 <body>
+<!DOCTYPE html>
+<html>
+<body>
 
+<h2>GRIP Dashboard</h2>
+
+<input id="apiKey" placeholder="API Key">
+<button onclick="load()">Load Datasets</button>
+
+<ul id="list"></ul>
+
+<script>
+async function load() {
+  const key = document.getElementById("apiKey").value;
+
+  const res = await fetch("/datasets", {
+    headers: {"x-api-key": key}
+  });
+
+  const data = await res.json();
+
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  data.forEach(d => {
+    const li = document.createElement("li");
+    li.innerText = d[0] + " - " + d[1];
+    list.appendChild(li);
+  });
+}
+</script>
+
+</body>
+</html>
 <h2>Upload CSV</h2>
 <input type="file" id="file">
 <input type="text" id="apiKey" placeholder="API Key">
