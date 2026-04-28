@@ -1,3 +1,5 @@
+from fastapi.responses import FileResponse
+import os
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 
@@ -82,10 +84,6 @@ def startup():
 # -----------------------------
 # ROOT
 # -----------------------------
-@app.get("/")
-def root():
-    return {"status": "GRIP API running"}
-
 
 @app.get("/version")
 def version():
@@ -95,26 +93,37 @@ def version():
 # -----------------------------
 # CREATE USER
 # -----------------------------
-@app.post("/create-user")
-def create_user(email: str):
+@app.post("/register")
+def register(email: str, password: str):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT api_key FROM users WHERE email=%s", (email,))
-            existing = cur.fetchone()
-
-            if existing:
-                return {"api_key": existing[0]}
+            if cur.fetchone():
+                raise HTTPException(400, "USER_EXISTS")
 
             api_key = str(uuid.uuid4())
 
-            cur.execute(
-                "INSERT INTO users (api_key, email) VALUES (%s, %s)",
-                (api_key, email)
-            )
+            cur.execute("""
+                INSERT INTO users (api_key, email, password, is_paid)
+                VALUES (%s, %s, %s, FALSE)
+            """, (api_key, email, password))
 
             return {"api_key": api_key}
+@app.post("/login")
+def login(email: str, password: str):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT api_key FROM users
+                WHERE email=%s AND password=%s
+            """, (email, password))
 
+            row = cur.fetchone()
 
+            if not row:
+                raise HTTPException(401, "INVALID_CREDENTIALS")
+
+            return {"api_key": row[0]}
 # -----------------------------
 # DATASETS
 # -----------------------------
@@ -161,7 +170,7 @@ async def upload(
             """, (dataset_id, api_key, file.filename, Json(parsed)))
 
     return {"dataset_id": dataset_id}
-
+"reports": [{"report_id": r[0]} for r in reports]
 
 # -----------------------------
 # ANALYZE
@@ -263,10 +272,12 @@ def report(
 # -----------------------------
 # FRONTEND (ALWAYS LAST)
 # -----------------------------
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
 @app.get("/dashboard")
 def dashboard(api_key: str = Depends(get_current_user)):
-
+cur.execute("""
+    SELECT id FROM reports WHERE api_key=%s ORDER BY id DESC
+""", (api_key,))
+reports = cur.fetchall()
     with get_conn() as conn:
         with conn.cursor() as cur:
 
