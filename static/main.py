@@ -16,7 +16,14 @@ from .services import analyze_data
 from .payments import initialize_payment, verify_payment
 from .scoring import grip_score
 from .reports import generate_pdf
+from fastapi.responses import FileResponse
+import os
 
+@app.get("/")
+def serve_dashboard():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    index_path = os.path.join(base_dir, "..", "static", "index.html")
+    return FileResponse(index_path)
 app = FastAPI()
 
 # -----------------------------

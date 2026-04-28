@@ -2,6 +2,12 @@
 <html>
 <head>
     <title>GRIP Dashboard</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        button { margin-left: 5px; }
+        li { margin-bottom: 5px; }
+        pre { background: #111; color: #0f0; padding: 10px; }
+    </style>
 </head>
 <body>
 
@@ -68,16 +74,21 @@ async function loadDashboard() {
         ps.appendChild(li);
     });
 
-    // REPORTS (NEW)
+    // REPORTS
     const rs = document.getElementById("reports");
     rs.innerHTML = "";
+
     if (data.reports) {
         data.reports.forEach(r => {
             const li = document.createElement("li");
-            li.innerHTML = `
-                ${r.report_id}
-                <button onclick="downloadReport('${r.report_id}')">Download</button>
-            `;
+
+            const btn = document.createElement("button");
+            btn.innerText = "Download";
+            btn.onclick = () => downloadReport(r.report_id);
+
+            li.innerText = r.report_id + " ";
+            li.appendChild(btn);
+
             rs.appendChild(li);
         });
     }
@@ -100,7 +111,8 @@ async function upload() {
     });
 
     const data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
 // -----------------------------
@@ -116,7 +128,8 @@ async function analyze() {
     });
 
     const data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
 // -----------------------------
@@ -132,7 +145,8 @@ async function generateReport() {
     });
 
     const data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+    document.getElementById("output").innerText =
+        JSON.stringify(data, null, 2);
 }
 
 // -----------------------------
@@ -141,7 +155,7 @@ async function generateReport() {
 function downloadReport(id) {
     const key = document.getElementById("apiKey").value;
 
-    window.open(`/report/${id}?x-api-key=${key}`);
+    window.open(`/download-report/${id}?x-api-key=${key}`);
 }
 
 </script>
