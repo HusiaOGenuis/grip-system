@@ -1,144 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GRIP Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://js.paystack.co/v1/inline.js"></script>
+  <title>GRIP System</title>
 </head>
+<body>
 
-<body style="background:#0b1220;color:white;font-family:sans-serif">
-
-<h1>GRIP Dashboard</h1>
-
-<input id="email" placeholder="Enter Email"><br><br>
-<button onclick="createUser()">Generate API Key</button><br><br>
-
-<input id="apiKey" placeholder="Enter API key"><br><br>
-
+<h2>Upload CSV</h2>
 <input type="file" id="file">
-<button onclick="upload()">Upload CSV</button>
-
-<h2>Records</h2>
-<button onclick="loadRecords()">Load Records</button>
+<input type="text" id="apiKey" placeholder="API Key">
+<button onclick="upload()">Upload</button>
 
 <h2>Analyze</h2>
-<button onclick="analyze()">Run Intelligence</button>
+<input type="text" id="datasetId" placeholder="Dataset ID">
+<button onclick="analyze()">Analyze</button>
 
-<h2>Upgrade</h2>
-<button onclick="upgrade()">Upgrade</button>
-
-<div id="output"></div>
-<canvas id="riskChart" width="400" height="200"></canvas>
+<pre id="output"></pre>
 
 <script>
-const API_URL = window.location.origin;
+async function upload() {
+  const file = document.getElementById("file").files[0];
+  const key = document.getElementById("apiKey").value;
 
-// CREATE USER
-async function createUser() {
-    const email = document.getElementById("email").value;
+  const formData = new FormData();
+  formData.append("file", file);
 
-    let res = await fetch(API_URL + "/create-user?email=" + email, {
-        method: "POST"
-    });
+  const res = await fetch("/upload", {
+    method: "POST",
+    headers: { "x-api-key": key },
+    body: formData
+  });
 
-    let data = await res.json();
-    document.getElementById("apiKey").value = data.api_key;
+  const data = await res.json();
+  document.getElementById("output").innerText = JSON.stringify(data, null, 2);
 }
 
-// UPLOAD
-from fastapi import UploadFile, File, Header, HTTPException
-import pandas as pd
-from io import StringIO
+async function analyze() {
+  const id = document.getElementById("datasetId").value;
+  const key = document.getElementById("apiKey").value;
 
-@app.post("/upload")
-async def upload(file: UploadFile = File(...), x_api_key: str = Header(...)):
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV allowed")
+  const res = await fetch(`/analyze?dataset_id=${id}`, {
+    method: "POST",
+    headers: { "x-api-key": key }
+  });
 
-    try:
-        content = await file.read()
-        df = pd.read_csv(StringIO(content.decode()))
-
-        if df.empty:
-            raise HTTPException(status_code=400, detail="Empty CSV")
-
-        records = df.to_dict(orient="records")
-
-        # store in DB (ensure this works)
-        for r in records:
-            cursor.execute(
-                "INSERT INTO records (api_key, data) VALUES (%s, %s)",
-                (x_api_key, json.dumps(r))
-            )
-
-        conn.commit()
-
-        return {"message": f"{len(records)} records uploaded"}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-// LOAD RECORDS
-async function loadRecords() {
-    const key = document.getElementById("apiKey").value;
-
-    let res = await fetch(API_URL + "/records", {
-        headers: { "x-api-key": key }
-    });
-
-    let data = await res.json();
-    document.getElementById("output").innerText =
-        JSON.stringify(data, null, 2);
-}
-
-// ANALYZE
-@app.get("/analyze")
-def analyze(x_api_key: str = Header(...)):
-
-    # 1. Check user exists
-    user = get_user_by_api_key(x_api_key)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-
-    # 2. Check payment
-    if not user["paid"]:
-        raise HTTPException(status_code=403, detail="Payment required")
-
-    # 3. Check data exists
-    cursor.execute("SELECT COUNT(*) FROM records WHERE api_key=%s", (x_api_key,))
-    count = cursor.fetchone()[0]
-
-    if count == 0:
-        raise HTTPException(status_code=400, detail="No data uploaded")
-
-    # 4. SAFE execution
-    data = get_records(x_api_key)
-
-    return {
-        "status": "success",
-        "records": len(data),
-        "analysis": "completed"
-    }
-// PAYSTACK
-function upgrade() {
-    const email = document.getElementById("email").value;
-
-    let handler = PaystackPop.setup({
-        key: "pk_test_f3eb851da078147dc1ea7535ea839b6357f4aa58",
-        email: email,
-        amount: 50000,
-        currency: "ZAR",
-
-        callback: function(response) {
-            fetch(API_URL + "/verify-payment/" + response.reference)
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById("output").innerText =
-                        JSON.stringify(data, null, 2);
-                });
-        }
-    });
-
-    handler.openIframe();
+  const data = await res.json();
+  document.getElementById("output").innerText = JSON.stringify(data, null, 2);
 }
 </script>
 

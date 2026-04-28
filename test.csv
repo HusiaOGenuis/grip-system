@@ -1,3 +1,23 @@
+transaction_id,date,department,amount,status,vendor_ref
+9d870c21-f600-479c-8482-c8b8091cb9bd,2026-04-06,Finance,1431.05,Reconciled,VND-192
+8400e5c2-a919-4cd1-8630-00f971720ca2,2026-03-29,Ops,3141.49,Flagged,VND-560
+f661e297-19f3-436d-913e-529e78ea66ff,2023-10-10,Ops,,Pending,VND-101
+87b0609d-51f7-4e2c-a08c-a5788f463970,2023-10-11,Finance,1200.0,,VND-102
+f7ab75c3-c5a3-4d7a-b7fc-d1067caa2845,INVALID_DATE,IT,NOT_A_NUMBER,Completed,VND-999
+f8a413e4-e3c1-4bc8-a2f6-513ec28db2c0,2023-10-12,Sales,50.0,Completed,VND-001
+f8a413e4-e3c1-4bc8-a2f6-513ec28db2c0,2023-10-12,Sales,50.0,Completed,VND-001
+cfc97b3d-ab6d-4a41-8878-0cc102b20b4f,2023-10-15,Ops,99.99,Completed,VND-SPECIAL-!@#$%^&*()
+e5e53c84-5ef1-4011-ac14-9fe49c9c3d07,2026-04-02,IT,156.36,Pending,VND-964
+
+
+
+
+
+
+
+
+
+
 event,description
 fraud,unauthorized transaction detected
 delay,shipment delayed by 5 days
