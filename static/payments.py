@@ -5,8 +5,14 @@ PAYSTACK_SECRET = os.getenv("PAYSTACK_SECRET_KEY")
 
 
 def initialize_payment(api_key: str, email: str):
+    """
+    Initialize Paystack transaction
+    Returns:
+        {"payment_url": "..."} OR {"error": "..."}
+    """
+
     if not PAYSTACK_SECRET:
-        raise Exception("PAYSTACK_NOT_CONFIGURED")
+        return {"error": "PAYSTACK_NOT_CONFIGURED"}
 
     url = "https://api.paystack.co/transaction/initialize"
 
@@ -17,22 +23,39 @@ def initialize_payment(api_key: str, email: str):
 
     payload = {
         "email": email,
-        "amount": 500000  # R50.00 (kobo)
+        "amount": 500000,  # R50.00 (in kobo)
+        "callback_url": "https://grip-system.onrender.com/verify-payment"
     }
 
-    response = requests.post(url, json=payload, headers=headers)
+    try:
+        response = requests.post(url, json=payload, headers=headers)
 
-    if response.status_code != 200:
-        raise Exception(f"PAYSTACK_ERROR: {response.text}")
+        # SAFE JSON PARSE
+        try:
+            data = response.json()
+        except Exception:
+            return {"error": "INVALID_PAYSTACK_RESPONSE"}
 
-    data = response.json()
+        if response.status_code != 200:
+            return {"error": data}
 
-    return data["data"]["authorization_url"]
+        return {
+            "payment_url": data["data"]["authorization_url"],
+            "reference": data["data"]["reference"]
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def verify_payment(reference: str):
+    """
+    Verify Paystack transaction
+    Returns: success | failed | error
+    """
+
     if not PAYSTACK_SECRET:
-        raise Exception("PAYSTACK_NOT_CONFIGURED")
+        return "PAYSTACK_NOT_CONFIGURED"
 
     url = f"https://api.paystack.co/transaction/verify/{reference}"
 
@@ -40,11 +63,15 @@ def verify_payment(reference: str):
         "Authorization": f"Bearer {PAYSTACK_SECRET}"
     }
 
-    response = requests.get(url, headers=headers)
+    try:
+        response = requests.get(url, headers=headers)
 
-    if response.status_code != 200:
+        if response.status_code != 200:
+            return "failed"
+
+        data = response.json()
+
+        return data["data"]["status"]
+
+    except Exception:
         return "failed"
-
-    data = response.json()
-
-    return data["data"]["status"]
