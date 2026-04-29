@@ -5,7 +5,6 @@
 <h1>GRIP Control Panel</h1>
 
 <button onclick="loadDashboard()">Refresh Dashboard</button>
-
 <pre id="dashboard"></pre>
 
 <hr>
@@ -34,52 +33,28 @@ async function loadDashboard() {
 }
 
 async function upload() {
-    const fileInput = document.getElementById("fileInput");
+    const file = document.getElementById("fileInput").files[0];
 
-    if (fileInput.files.length === 0) {
-        alert("Select a file first");
+    if (!file) {
+        alert("Select file");
         return;
     }
-
-    const file = fileInput.files[0];
 
     const form = new FormData();
     form.append("file", file);
 
-    try {
-        const res = await fetch(API + "/upload", {
-            method: "POST",
-            body: form
-        });
+    const res = await fetch(API + "/upload", {
+        method: "POST",
+        body: form
+    });
 
-        const data = await res.json();
+    const data = await res.json();
 
-        console.log("UPLOAD RESPONSE:", data); // 🔍 DEBUG
-
-        if (!res.ok) {
-            alert(JSON.stringify(data));
-            return;
-        }
-
-        if (!data.dataset_id) {
-            alert("No dataset_id returned");
-            return;
-        }
-
-        document.getElementById("datasetId").value = data.dataset_id;
-
-    } catch (err) {
-        alert("Upload failed: " + err);
-    }
+    document.getElementById("datasetId").value = data.dataset_id;
 }
 
 async function analyze() {
     const id = document.getElementById("datasetId").value;
-
-    if (!id) {
-        alert("Dataset ID missing");
-        return;
-    }
 
     const form = new FormData();
     form.append("dataset_id", id);
@@ -95,8 +70,10 @@ async function analyze() {
 async function pay() {
     const id = document.getElementById("datasetId").value;
 
+    // TEMP (until Paystack UI added)
     const form = new FormData();
     form.append("dataset_id", id);
+    form.append("reference", "test");  // placeholder
 
     await fetch(API + "/verify-payment", {
         method: "POST",
@@ -122,12 +99,6 @@ async function generate() {
 
 function download() {
     const id = document.getElementById("datasetId").value;
-
-    if (!id) {
-        alert("Dataset ID missing");
-        return;
-    }
-
     window.open(API + "/download/" + id);
 }
 </script>
