@@ -34,21 +34,52 @@ async function loadDashboard() {
 }
 
 async function upload() {
-    const file = document.getElementById("fileInput").files[0];
+    const fileInput = document.getElementById("fileInput");
+
+    if (fileInput.files.length === 0) {
+        alert("Select a file first");
+        return;
+    }
+
+    const file = fileInput.files[0];
+
     const form = new FormData();
     form.append("file", file);
 
-    const res = await fetch(API + "/upload", {
-        method: "POST",
-        body: form
-    });
+    try {
+        const res = await fetch(API + "/upload", {
+            method: "POST",
+            body: form
+        });
 
-    const data = await res.json();
-    document.getElementById("datasetId").value = data.dataset_id;
+        const data = await res.json();
+
+        console.log("UPLOAD RESPONSE:", data); // 🔍 DEBUG
+
+        if (!res.ok) {
+            alert(JSON.stringify(data));
+            return;
+        }
+
+        if (!data.dataset_id) {
+            alert("No dataset_id returned");
+            return;
+        }
+
+        document.getElementById("datasetId").value = data.dataset_id;
+
+    } catch (err) {
+        alert("Upload failed: " + err);
+    }
 }
 
 async function analyze() {
     const id = document.getElementById("datasetId").value;
+
+    if (!id) {
+        alert("Dataset ID missing");
+        return;
+    }
 
     const form = new FormData();
     form.append("dataset_id", id);
@@ -91,6 +122,12 @@ async function generate() {
 
 function download() {
     const id = document.getElementById("datasetId").value;
+
+    if (!id) {
+        alert("Dataset ID missing");
+        return;
+    }
+
     window.open(API + "/download/" + id);
 }
 </script>
