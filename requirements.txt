@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-psycopg[binary]
 python-multipart
 pandas
 reportlab
+psycopg[binary]
