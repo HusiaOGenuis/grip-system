@@ -4,6 +4,12 @@ import requests
 PAYSTACK_SECRET = os.getenv("PAYSTACK_SECRET_KEY")
 
 
+import os
+import requests
+
+PAYSTACK_SECRET = os.getenv("PAYSTACK_SECRET_KEY")
+
+
 def initialize_payment(api_key: str, email: str):
     if not PAYSTACK_SECRET:
         raise Exception("PAYSTACK_NOT_CONFIGURED")
@@ -17,7 +23,8 @@ def initialize_payment(api_key: str, email: str):
 
     payload = {
         "email": email,
-        "amount": 500000  # R50.00 (kobo)
+        "amount": 500000,
+        "callback_url": "https://grip-system.onrender.com/verify-payment"
     }
 
     response = requests.post(url, json=payload, headers=headers)
@@ -27,8 +34,11 @@ def initialize_payment(api_key: str, email: str):
 
     data = response.json()
 
-    return data["data"]["authorization_url"]
-
+    # ✅ RETURN BOTH URL + REFERENCE
+    return {
+        "payment_url": data["data"]["authorization_url"],
+        "reference": data["data"]["reference"]
+    }
 
 def verify_payment(reference: str):
     if not PAYSTACK_SECRET:
