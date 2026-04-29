@@ -32,7 +32,7 @@ def initialize_payment(api_key: str, email: str):
 
 def verify_payment(reference: str):
     if not PAYSTACK_SECRET:
-        raise Exception("PAYSTACK_NOT_CONFIGURED")
+        return "not_configured"
 
     url = f"https://api.paystack.co/transaction/verify/{reference}"
 
@@ -40,11 +40,14 @@ def verify_payment(reference: str):
         "Authorization": f"Bearer {PAYSTACK_SECRET}"
     }
 
-    response = requests.get(url, headers=headers)
+    try:
+        response = requests.get(url, headers=headers)
+        data = response.json()
 
-    if response.status_code != 200:
+        if response.status_code != 200:
+            return "failed"
+
+        return data["data"]["status"]
+
+    except Exception:
         return "failed"
-
-    data = response.json()
-
-    return data["data"]["status"]
