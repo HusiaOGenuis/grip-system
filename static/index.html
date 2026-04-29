@@ -1,151 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GRIP Dashboard</title>
+    <title>GRIP Control Panel</title>
 </head>
 <body>
 
-<h2>GRIP Control Panel</h2>
-
-<input id="apiKey" placeholder="API Key">
-<button onclick="loadDashboard()">Refresh</button>
+<h1>GRIP Control Panel</h1>
 
 <hr>
 
-<h3>Datasets</h3>
-<ul id="datasets"></ul>
+<h2>Upload CSV</h2>
 
-<h3>Payments</h3>
-<ul id="payments"></ul>
-
-<h3>Reports</h3>
-<ul id="reports"></ul>
-
-<hr>
-
-<h3>Actions</h3>
-
-<input type="file" id="file">
-<button onclick="upload()">Upload CSV</button>
+<input type="file" id="fileInput">
+<button onclick="uploadCSV()">Upload CSV</button>
 
 <br><br>
 
 <input id="datasetId" placeholder="Dataset ID">
-<button onclick="analyze()">Analyze</button>
-<button onclick="generateReport()">Generate Report</button>
-
-<br><br>
-
-<button onclick="pay()">Pay</button>
-<button onclick="verifyPayment()">Verify Payment</button>
-
-<pre id="output"></pre>
 
 <script>
+const API = "https://YOUR-RENDER-URL.onrender.com";
 
-// LOAD DASHBOARD
-async function loadDashboard() {
-    const key = document.getElementById("apiKey").value;
+async function uploadCSV() {
+    const input = document.getElementById("fileInput");
 
-    const res = await fetch("/dashboard", {
-        headers: {"x-api-key": key}
-    });
-
-    const data = await res.json();
-
-    document.getElementById("datasets").innerHTML =
-        JSON.stringify(data.datasets || [], null, 2);
-
-    document.getElementById("payments").innerHTML =
-        JSON.stringify(data.payments || [], null, 2);
-
-    document.getElementById("reports").innerHTML =
-        JSON.stringify(data.reports || [], null, 2);
-}
-
-// UPLOAD
-async function upload() {
-    const file = document.getElementById("file").files[0];
-    const key = document.getElementById("apiKey").value;
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch("/upload", {
-        method: "POST",
-        headers: {"x-api-key": key},
-        body: formData
-    });
-
-    const data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
-}
-
-// ANALYZE
-async function analyze() {
-    const id = document.getElementById("datasetId").value;
-    const key = document.getElementById("apiKey").value;
-
-    const res = await fetch(`/analyze?dataset_id=${id}`, {
-        method: "POST",
-        headers: {"x-api-key": key}
-    });
-
-    const data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
-}
-
-// PAY
-async function pay() {
-    const key = document.getElementById("apiKey").value;
-
-    if (!key) {
-        alert("Enter API Key first");
+    if (input.files.length === 0) {
+        alert("Please select a file first");
         return;
     }
 
+    const file = input.files[0];
+
+    const formData = new FormData();
+    formData.append("file", file);  // ⚠️ THIS MUST BE THE FILE OBJECT
+
     try {
-        const res = await fetch("/pay", {
+        const response = await fetch(API + "/upload", {
             method: "POST",
-            headers: { "x-api-key": key }
+            body: formData
         });
 
-        const text = await res.text();
+        const data = await response.json();
 
-        console.log("RAW RESPONSE:", text);
-
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch {
-            alert("Server returned non-JSON:\n" + text);
+        if (!response.ok) {
+            alert("Upload failed: " + JSON.stringify(data));
             return;
         }
 
-        if (data.payment_url) {
-            window.open(data.payment_url, "_blank");
-        } else {
-            alert("Payment error:\n" + JSON.stringify(data, null, 2));
-        }
+        document.getElementById("datasetId").value = data.dataset_id;
+        alert("Upload successful");
 
-    } catch (err) {
-        alert("Request failed: " + err);
+    } catch (error) {
+        alert("Network error: " + error);
     }
 }
-// REPORT
-async function generateReport() {
-    const key = document.getElementById("apiKey").value;
-    const id = document.getElementById("datasetId").value;
-
-    const res = await fetch(`/report?dataset_id=${id}`, {
-        method: "POST",
-        headers: {"x-api-key": key}
-    });
-
-    const data = await res.json();
-    document.getElementById("output").innerText = JSON.stringify(data, null, 2);
-}
-
 </script>
 
 </body>

@@ -1,18 +1,17 @@
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-import uuid
+import pandas as pd
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 
-def generate_pdf(dataset_id, analysis, score):
-    filename = f"{dataset_id}.pdf"
+def generate_pdf(csv_path, output_path):
+    df = pd.read_csv(csv_path)
 
-    c = canvas.Canvas(filename, pagesize=letter)
+    doc = SimpleDocTemplate(output_path)
+    styles = getSampleStyleSheet()
 
-    c.drawString(100, 750, f"GRIP REPORT: {dataset_id}")
-    c.drawString(100, 720, f"Records: {analysis['record_count']}")
-    c.drawString(100, 700, f"Missing: {analysis['missing_values']}")
-    c.drawString(100, 680, f"Score: {score['completeness_score']}%")
-    c.drawString(100, 660, f"Risk: {score['risk_flag']}")
+    content = []
 
-    c.save()
+    content.append(Paragraph("GRIP ANALYSIS REPORT", styles["Title"]))
+    content.append(Paragraph(f"Rows: {len(df)}", styles["Normal"]))
+    content.append(Paragraph(f"Columns: {', '.join(df.columns)}", styles["Normal"]))
 
-    return filename
+    doc.build(content)
