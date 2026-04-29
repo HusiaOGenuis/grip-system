@@ -2,12 +2,6 @@
 <html>
 <head>
     <title>GRIP Dashboard</title>
-    <style>
-        body { font-family: Arial; margin: 40px; }
-        button { margin-left: 5px; }
-        li { margin-bottom: 5px; }
-        pre { background: #111; color: #0f0; padding: 10px; }
-    </style>
 </head>
 <body>
 
@@ -39,6 +33,7 @@
 <input id="datasetId" placeholder="Dataset ID">
 <button onclick="analyze()">Analyze</button>
 <button onclick="generateReport()">Generate Report</button>
+
 <br><br>
 
 <button onclick="pay()">Pay</button>
@@ -48,11 +43,7 @@
 
 <script>
 
-// -----------------------------
 // LOAD DASHBOARD
-// -----------------------------
-<script>
-
 async function loadDashboard() {
     const key = document.getElementById("apiKey").value;
 
@@ -62,37 +53,14 @@ async function loadDashboard() {
 
     const data = await res.json();
 
-    // DATASETS
-    const ds = document.getElementById("datasets");
-    ds.innerHTML = "";
-    data.datasets.forEach(d => {
-        const li = document.createElement("li");
-        li.innerText = d.dataset_id;
-        ds.appendChild(li);
-    });
+    document.getElementById("datasets").innerHTML =
+        JSON.stringify(data.datasets || [], null, 2);
 
-    // PAYMENTS
-    const ps = document.getElementById("payments");
-    ps.innerHTML = "";
-    data.payments.forEach(p => {
-        const li = document.createElement("li");
-        li.innerText = p.reference + " → " + p.status;
-        ps.appendChild(li);
-    });
+    document.getElementById("payments").innerHTML =
+        JSON.stringify(data.payments || [], null, 2);
 
-    // REPORTS
-    const rs = document.getElementById("reports");
-    rs.innerHTML = "";
-    if (data.reports) {
-        data.reports.forEach(r => {
-            const li = document.createElement("li");
-            li.innerHTML = `
-                ${r.report_id}
-                <button onclick="downloadReport('${r.report_id}')">Download</button>
-            `;
-            rs.appendChild(li);
-        });
-    }
+    document.getElementById("reports").innerHTML =
+        JSON.stringify(data.reports || [], null, 2);
 }
 
 // UPLOAD
@@ -141,7 +109,7 @@ async function pay() {
     if (data.payment_url) {
         window.open(data.payment_url, "_blank");
     } else {
-        alert("Payment error");
+        alert("Payment failed");
     }
 }
 
@@ -170,77 +138,6 @@ async function generateReport() {
 
     const data = await res.json();
     document.getElementById("output").innerText = JSON.stringify(data, null, 2);
-}
-
-// DOWNLOAD
-function downloadReport(id) {
-    const key = document.getElementById("apiKey").value;
-    window.open(`/report/${id}?x-api-key=${key}`);
-}
-
-</script>
-// -----------------------------
-// UPLOAD
-// -----------------------------
-async function upload() {
-    const file = document.getElementById("file").files[0];
-    const key = document.getElementById("apiKey").value;
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch("/upload", {
-        method: "POST",
-        headers: {"x-api-key": key},
-        body: formData
-    });
-
-    const data = await res.json();
-    document.getElementById("output").innerText =
-        JSON.stringify(data, null, 2);
-}
-
-// -----------------------------
-// ANALYZE
-// -----------------------------
-async function analyze() {
-    const id = document.getElementById("datasetId").value;
-    const key = document.getElementById("apiKey").value;
-
-    const res = await fetch(`/analyze?dataset_id=${id}`, {
-        method: "POST",
-        headers: {"x-api-key": key}
-    });
-
-    const data = await res.json();
-    document.getElementById("output").innerText =
-        JSON.stringify(data, null, 2);
-}
-
-// -----------------------------
-// REPORT
-// -----------------------------
-async function generateReport() {
-    const key = document.getElementById("apiKey").value;
-    const id = document.getElementById("datasetId").value;
-
-    const res = await fetch(`/report?dataset_id=${id}`, {
-        method: "POST",
-        headers: {"x-api-key": key}
-    });
-
-    const data = await res.json();
-    document.getElementById("output").innerText =
-        JSON.stringify(data, null, 2);
-}
-
-// -----------------------------
-// DOWNLOAD
-// -----------------------------
-function downloadReport(id) {
-    const key = document.getElementById("apiKey").value;
-
-    window.open(`/download-report/${id}?x-api-key=${key}`);
 }
 
 </script>
