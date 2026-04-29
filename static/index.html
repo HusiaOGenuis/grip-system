@@ -12,47 +12,80 @@
 <h2>Upload CSV</h2>
 
 <input type="file" id="fileInput">
-<button onclick="uploadCSV()">Upload CSV</button>
+<button onclick="upload()">Upload</button>
 
 <br><br>
 
 <input id="datasetId" placeholder="Dataset ID">
 
+<br><br>
+
+<button onclick="analyze()">Analyze</button>
+<button onclick="generate()">Generate Report</button>
+<button onclick="download()">Download Report</button>
+
 <script>
 const API = "https://YOUR-RENDER-URL.onrender.com";
 
-async function uploadCSV() {
+async function upload() {
     const input = document.getElementById("fileInput");
 
     if (input.files.length === 0) {
-        alert("Please select a file first");
+        alert("Select a file first");
         return;
     }
 
     const file = input.files[0];
+    const form = new FormData();
+    form.append("file", file);
 
-    const formData = new FormData();
-    formData.append("file", file);  // ⚠️ THIS MUST BE THE FILE OBJECT
+    const res = await fetch(API + "/upload", {
+        method: "POST",
+        body: form
+    });
 
-    try {
-        const response = await fetch(API + "/upload", {
-            method: "POST",
-            body: formData
-        });
+    const data = await res.json();
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            alert("Upload failed: " + JSON.stringify(data));
-            return;
-        }
-
-        document.getElementById("datasetId").value = data.dataset_id;
-        alert("Upload successful");
-
-    } catch (error) {
-        alert("Network error: " + error);
+    if (!res.ok) {
+        alert(JSON.stringify(data));
+        return;
     }
+
+    document.getElementById("datasetId").value = data.dataset_id;
+    alert("Uploaded");
+}
+
+async function analyze() {
+    const id = document.getElementById("datasetId").value;
+
+    const form = new FormData();
+    form.append("dataset_id", id);
+
+    const res = await fetch(API + "/analyze", {
+        method: "POST",
+        body: form
+    });
+
+    alert(await res.text());
+}
+
+async function generate() {
+    const id = document.getElementById("datasetId").value;
+
+    const form = new FormData();
+    form.append("dataset_id", id);
+
+    const res = await fetch(API + "/generate-report", {
+        method: "POST",
+        body: form
+    });
+
+    alert(await res.text());
+}
+
+function download() {
+    const id = document.getElementById("datasetId").value;
+    window.open(API + "/download/" + id);
 }
 </script>
 
