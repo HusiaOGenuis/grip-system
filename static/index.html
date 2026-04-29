@@ -115,15 +115,7 @@ async function pay() {
 
 // VERIFY
 async function verifyPayment() {
-    const ref = prompt("Paste payment reference");
-    const key = document.getElementById("apiKey").value;
-
-    const res = await fetch(`/verify-payment?reference=${ref}`, {
-        headers: {"x-api-key": key}
-    });
-
-    const data = await res.json();
-    alert(JSON.stringify(data));
+    alert("Verification happens automatically after payment.");
 }
 
 // REPORT
