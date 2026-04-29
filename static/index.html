@@ -107,19 +107,25 @@ async function pay() {
     try {
         const res = await fetch("/pay", {
             method: "POST",
-            headers: {
-                "x-api-key": key
-            }
+            headers: { "x-api-key": key }
         });
 
-        const data = await res.json();
+        const text = await res.text();
 
-        console.log("PAY RESPONSE:", data);
+        console.log("RAW RESPONSE:", text);
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            alert("Server returned non-JSON:\n" + text);
+            return;
+        }
 
         if (data.payment_url) {
             window.open(data.payment_url, "_blank");
         } else {
-            alert("Payment failed: " + JSON.stringify(data));
+            alert("Payment error:\n" + JSON.stringify(data, null, 2));
         }
 
     } catch (err) {
