@@ -99,25 +99,33 @@ async function analyze() {
 async function pay() {
     const key = document.getElementById("apiKey").value;
 
-    const res = await fetch("/pay", {
-        method: "POST",
-        headers: {"x-api-key": key}
-    });
+    if (!key) {
+        alert("Enter API Key first");
+        return;
+    }
 
-    const data = await res.json();
+    try {
+        const res = await fetch("/pay", {
+            method: "POST",
+            headers: {
+                "x-api-key": key
+            }
+        });
 
-    if (data.payment_url) {
-        window.open(data.payment_url, "_blank");
-    } else {
-        alert("Payment failed");
+        const data = await res.json();
+
+        console.log("PAY RESPONSE:", data);
+
+        if (data.payment_url) {
+            window.open(data.payment_url, "_blank");
+        } else {
+            alert("Payment failed: " + JSON.stringify(data));
+        }
+
+    } catch (err) {
+        alert("Request failed: " + err);
     }
 }
-
-// VERIFY
-async function verifyPayment() {
-    alert("Verification happens automatically after payment.");
-}
-
 // REPORT
 async function generateReport() {
     const key = document.getElementById("apiKey").value;
