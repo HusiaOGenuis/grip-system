@@ -1,107 +1,99 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GRIP Dashboard</title>
+  <script src="https://js.paystack.co/v1/inline.js"></script>
+</head>
+
 <body>
+  <h2>GRIP SYSTEM</h2>
 
-<h1>GRIP Control Panel</h1>
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload & Analyze</button>
 
-<button onclick="loadDashboard()">Refresh Dashboard</button>
-<pre id="dashboard"></pre>
+  <br><br>
 
-<hr>
+  <button onclick="payNow()">Unlock Full Report (R50)</button>
 
-<input type="file" id="fileInput">
-<button onclick="upload()">Upload CSV</button>
+  <br><br>
 
-<br><br>
+  <button onclick="downloadReport()">Download Report</button>
 
-<input id="datasetId" placeholder="Dataset ID">
+  <script>
+    let currentFileId = null;
+    let userEmail = "user@example.com"; // replace with real input later
 
-<br><br>
+    async function uploadFile() {
+      const file = document.getElementById("fileInput").files[0];
+      const formData = new FormData();
+      formData.append("file", file);
 
-<button onclick="analyze()">Analyze</button>
-<button onclick="pay()">Verify Payment</button>
-<button onclick="generate()">Generate Report</button>
-<button onclick="download()">Download</button>
+      const res = await fetch("/upload", {
+        method: "POST",
+        body: formData
+      });
 
-<script>
-const API = "https://grip-system.onrender.com";
+      const data = await res.json();
+      currentFileId = data.file_id;
 
-async function loadDashboard() {
-    const res = await fetch(API + "/dashboard");
-    const data = await res.json();
-    document.getElementById("dashboard").innerText = JSON.stringify(data, null, 2);
-}
-
-async function upload() {
-    const file = document.getElementById("fileInput").files[0];
-
-    if (!file) {
-        alert("Select file");
-        return;
+      alert("Uploaded + Analyzed");
     }
 
-    const form = new FormData();
-    form.append("file", file);
+    function payNow() {
+      if (!currentFileId) {
+        alert("Upload file first");
+        return;
+      }
 
-    const res = await fetch(API + "/upload", {
+      let handler = PaystackPop.setup({
+        key: "pk_test_xxxxxxxxxxxxxxxxxxxxx", // 🔴 REPLACE WITH YOUR PUBLIC KEY
+        email: userEmail,
+        amount: 5000, // 50 ZAR (in kobo)
+        currency: "ZAR",
+        ref: "GRIP-" + Math.floor((Math.random() * 1000000000) + 1),
+
+        callback: function(response) {
+          verifyPayment(response.reference);
+        },
+
+        onClose: function() {
+          alert("Payment window closed");
+        }
+      });
+
+      handler.openIframe();
+    }
+
+    async function verifyPayment(reference) {
+      const res = await fetch("/verify-payment", {
         method: "POST",
-        body: form
-    });
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          reference: reference,
+          file_id: currentFileId
+        })
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    document.getElementById("datasetId").value = data.dataset_id;
-}
+      if (data.status === "success") {
+        alert("Payment verified. You can now download.");
+      } else {
+        alert("Verification failed");
+      }
+    }
 
-async function analyze() {
-    const id = document.getElementById("datasetId").value;
+    async function downloadReport() {
+      if (!currentFileId) {
+        alert("Upload first");
+        return;
+      }
 
-    const form = new FormData();
-    form.append("dataset_id", id);
-
-    const res = await fetch(API + "/analyze", {
-        method: "POST",
-        body: form
-    });
-
-    alert(await res.text());
-}
-
-async function pay() {
-    const id = document.getElementById("datasetId").value;
-
-    // TEMP (until Paystack UI added)
-    const form = new FormData();
-    form.append("dataset_id", id);
-    form.append("reference", "test");  // placeholder
-
-    await fetch(API + "/verify-payment", {
-        method: "POST",
-        body: form
-    });
-
-    alert("Payment unlocked");
-}
-
-async function generate() {
-    const id = document.getElementById("datasetId").value;
-
-    const form = new FormData();
-    form.append("dataset_id", id);
-
-    const res = await fetch(API + "/generate-report", {
-        method: "POST",
-        body: form
-    });
-
-    alert(await res.text());
-}
-
-function download() {
-    const id = document.getElementById("datasetId").value;
-    window.open(API + "/download/" + id);
-}
-</script>
-
+      window.location.href = `/download/${currentFileId}`;
+    }
+  </script>
 </body>
 </html>
+```
