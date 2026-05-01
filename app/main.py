@@ -1,118 +1,158 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 from supabase import create_client, Client
-
 import uuid
 import os
 import requests
 import pandas as pd
 import io
 
+app = FastAPI()
+
 # =========================
-# CONTRACT: PRECONDITIONS
+# ENV CONTRACT
 # =========================
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-BUCKET_NAME = "reports"
+PAYSTACK_SECRET = os.getenv("PAYSTACK_SECRET")
+BUCKET = "reports"
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("Supabase credentials not set")
+    raise Exception("Supabase credentials missing")
 
-# =========================
-# INITIALIZATION
-# =========================
-app = FastAPI()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # =========================
-# STATIC FRONTEND
+# STATIC UI
 # =========================
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
 @app.get("/", response_class=HTMLResponse)
-def read_root():
-    with open("static/index.html", "r") as f:
+def root():
+    with open("static/index.html") as f:
         return f.read()
 
+# =========================
+# SCORING ENGINE (INLINE)
+# =========================
+def grip_score(data):
+    total = len(data)
+    if total == 0:
+        return {"score": 0, "risk": "INVALID"}
+
+    missing = 0
+    duplicates = 0
+    seen = set()
+
+    for row in data:
+        for v in row.values():
+            if v in (None, "", "null"):
+                missing += 1
+
+        key = tuple(row.items())
+        if key in seen:
+            duplicates += 1
+        else:
+            seen.add(key)
+
+    completeness = 1 - (missing / (total * len(data[0])))
+    uniqueness = 1 - (duplicates / total)
+
+    score = (completeness * 0.6 + uniqueness * 0.4) * 100
+
+    if score < 50:
+        risk = "HIGH"
+    elif score < 75:
+        risk = "MEDIUM"
+    else:
+        risk = "LOW"
+
+    return {
+        "completeness": round(completeness * 100, 2),
+        "uniqueness": round(uniqueness * 100, 2),
+        "score": round(score, 2),
+        "risk": risk
+    }
 
 # =========================
-# CONTRACT MODEL
+# PAYSTACK VERIFY
 # =========================
-class FileRequest(BaseModel):
-    file_name: str
+def verify_payment(reference: str):
+    url = f"https://api.paystack.co/transaction/verify/{reference}"
 
+    headers = {
+        "Authorization": f"Bearer {PAYSTACK_SECRET}"
+    }
+
+    response = requests.get(url, headers=headers).json()
+
+    if response.get("data", {}).get("status") == "success":
+        return True
+
+    raise HTTPException(400, "Payment not verified")
 
 # =========================
-# UPLOAD → SUPABASE
+# UPLOAD
 # =========================
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
     contents = await file.read()
-
-    if not contents:
-        raise HTTPException(status_code=400, detail="Empty file")
-
     filename = f"{uuid.uuid4()}.csv"
 
-    res = supabase.storage.from_(BUCKET_NAME).upload(filename, contents)
-
-    if hasattr(res, "error") and res.error:
-        raise HTTPException(status_code=500, detail=str(res.error))
+    supabase.storage.from_(BUCKET).upload(
+        path=filename,
+        file=contents,
+        file_options={"content-type": "text/csv"}
+    )
 
     return {"file": filename}
 
-
 # =========================
-# LIST FILES FROM SUPABASE
+# LIST FILES
 # =========================
 @app.get("/files")
 def list_files():
-    res = supabase.storage.from_(BUCKET_NAME).list()
-
-    files = []
-    for f in res:
-        if "name" in f:
-            files.append(f["name"])
-
+    result = supabase.storage.from_(BUCKET).list()
+    files = [item["name"] for item in result if "name" in item]
     return {"files": files}
 
-
 # =========================
-# ANALYZE EXISTING FILE
+# ANALYZE + STORE
 # =========================
 @app.post("/analyze")
-def analyze(req: FileRequest):
-    file_name = req.file_name
+def analyze(file_name: str):
 
-    signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(file_name, 60)
-
-    if "signedURL" not in signed:
-        raise HTTPException(status_code=500, detail="Failed to create signed URL")
-
+    signed = supabase.storage.from_(BUCKET).create_signed_url(file_name, 60)
     response = requests.get(signed["signedURL"])
 
-    if response.status_code != 200:
-        raise HTTPException(status_code=500, detail="Failed to fetch file")
-
     df = pd.read_csv(io.StringIO(response.text))
+    data = df.to_dict(orient="records")
 
-    return {
+    score_result = grip_score(data)
+
+    result = {
+        "file_name": file_name,
         "rows": len(df),
-        "columns": list(df.columns)
+        "columns": list(df.columns),
+        "score": score_result
     }
 
+    # STORE RESULT
+    supabase.table("reports_analysis").insert({
+        "file_name": file_name,
+        "rows": len(df),
+        "columns": list(df.columns)
+    }).execute()
+
+    return result
 
 # =========================
-# DOWNLOAD (SECURE CONTRACT)
+# DOWNLOAD (PAYMENT LOCK)
 # =========================
 @app.get("/download/{file_name}")
-def download(file_name: str):
-    signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(file_name, 60)
+def download(file_name: str, reference: str):
+    verify_payment(reference)
 
-    if "signedURL" not in signed:
-        raise HTTPException(status_code=500, detail="Download failed")
-
-    return {"download_url": signed["signedURL"]}
+    signed = supabase.storage.from_(BUCKET).create_signed_url(file_name, 60)
+    return {"url": signed["signedURL"]}

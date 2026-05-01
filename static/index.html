@@ -7,109 +7,95 @@
 
 <h1>GRIP SYSTEM</h1>
 
-<!-- ========================= -->
-<!-- UPLOAD CONTRACT -->
-<!-- ========================= -->
+<!-- UPLOAD -->
 <input type="file" id="fileInput">
-<button onclick="uploadFile()">Upload</button>
+<button onclick="upload()">Upload</button>
 
 <br><br>
 
-<!-- ========================= -->
-<!-- LOAD FILES FROM SUPABASE -->
-<!-- ========================= -->
+<!-- LOAD FILES -->
 <button onclick="loadFiles()">Load Available Files</button>
 
-<select id="fileList"></select>
+<select id="fileSelect">
+    <option value="">-- Select File --</option>
+</select>
 
 <br><br>
 
-<!-- ========================= -->
-<!-- ANALYZE -->
-<!-- ========================= -->
-<button onclick="analyzeFile()">Analyze Selected</button>
-
-<br><br>
-
-<!-- ========================= -->
-<!-- DOWNLOAD -->
-<!-- ========================= -->
-<button onclick="downloadFile()">Download Selected</button>
-
-<br><br>
-
-<!-- ========================= -->
-<!-- OUTPUT -->
-<!-- ========================= -->
-<pre id="output"></pre>
+<!-- ACTIONS -->
+<button onclick="analyze()">Analyze Selected</button>
+<button onclick="download()">Download Selected</button>
 
 <script>
 
-async function uploadFile() {
-    const fileInput = document.getElementById('fileInput');
+async function upload() {
+    const file = document.getElementById("fileInput").files[0];
 
-    if (!fileInput.files.length) {
-        alert("Select a file first");
+    if (!file) {
+        alert("Select file first");
         return;
     }
 
     const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
+    formData.append("file", file);
 
-    const res = await fetch('/upload', {
-        method: 'POST',
+    const res = await fetch("/upload", {
+        method: "POST",
         body: formData
     });
 
     const data = await res.json();
-    document.getElementById('output').innerText = JSON.stringify(data, null, 2);
+    alert("Uploaded: " + data.file);
 }
 
 async function loadFiles() {
-    const res = await fetch('/files');
+    const res = await fetch("/files");
     const data = await res.json();
 
-    const select = document.getElementById('fileList');
-    select.innerHTML = '';
+    console.log("FILES RESPONSE:", data);
+
+    const select = document.getElementById("fileSelect");
+
+    // clear existing
+    select.innerHTML = '<option value="">-- Select File --</option>';
 
     data.files.forEach(file => {
-        const opt = document.createElement('option');
-        opt.value = file;
-        opt.text = file;
-        select.appendChild(opt);
+        const option = document.createElement("option");
+        option.value = file;
+        option.text = file;
+        select.appendChild(option);
     });
 }
 
-async function analyzeFile() {
-    const file = document.getElementById('fileList').value;
+async function analyze() {
+    const file = document.getElementById("fileSelect").value;
 
     if (!file) {
-        alert("No file selected");
+        alert("Select file first");
         return;
     }
 
-    const res = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_name: file })
+    const res = await fetch("/analyze?file_name=" + file, {
+        method: "POST"
     });
 
     const data = await res.json();
-    document.getElementById('output').innerText = JSON.stringify(data, null, 2);
+
+    alert("Rows: " + data.rows + "\nColumns: " + data.columns);
 }
 
-async function downloadFile() {
-    const file = document.getElementById('fileList').value;
+async function download() {
+    const file = document.getElementById("fileSelect").value;
 
     if (!file) {
-        alert("No file selected");
+        alert("Select file first");
         return;
     }
 
-    const res = await fetch(`/download/${file}`);
+    const res = await fetch("/download/" + file);
     const data = await res.json();
 
-    window.open(data.download_url, '_blank');
+    window.open(data.download_url, "_blank");
 }
 
 </script>
