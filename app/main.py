@@ -120,8 +120,16 @@ def list_files():
 # =========================
 # ANALYZE + STORE
 # =========================
+from pydantic import BaseModel
+
+class AnalyzeRequest(BaseModel):
+    file_name: str
+
+
 @app.post("/analyze")
-def analyze(file_name: str):
+def analyze(req: AnalyzeRequest):
+
+    file_name = req.file_name
 
     signed = supabase.storage.from_(BUCKET).create_signed_url(file_name, 60)
     response = requests.get(signed["signedURL"])
@@ -138,7 +146,6 @@ def analyze(file_name: str):
         "score": score_result
     }
 
-    # STORE RESULT
     supabase.table("reports_analysis").insert({
         "file_name": file_name,
         "rows": len(df),
@@ -146,7 +153,6 @@ def analyze(file_name: str):
     }).execute()
 
     return result
-
 # =========================
 # DOWNLOAD (PAYMENT LOCK)
 # =========================
