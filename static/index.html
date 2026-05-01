@@ -60,14 +60,23 @@ async function loadFiles() {
     });
 }
 
+<script>
 async function analyze() {
     const file = document.getElementById("fileList").value;
-    if (!file) return alert("Select file");
+
+    if (!file) {
+        alert("Select file first");
+        return;
+    }
 
     const res = await fetch("/analyze", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ file_name: file })
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            file_name: file
+        })
     });
 
     const data = await res.json();
@@ -75,6 +84,7 @@ async function analyze() {
     document.getElementById("output").textContent =
         JSON.stringify(data, null, 2);
 }
+</script>
 
 async function download() {
     const file = document.getElementById("fileList").value;
