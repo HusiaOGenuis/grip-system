@@ -2,6 +2,8 @@
 <html>
 <head>
     <title>GRIP SYSTEM</title>
+
+    <!-- LOAD PAYSTACK FIRST -->
     <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
 
@@ -24,6 +26,9 @@
     <pre id="output"></pre>
 
 <script>
+// =========================
+// LOAD FILES
+// =========================
 async function loadFiles() {
     const res = await fetch("/files");
     const data = await res.json();
@@ -39,6 +44,9 @@ async function loadFiles() {
     });
 }
 
+// =========================
+// UPLOAD
+// =========================
 async function upload() {
     const file = document.getElementById("fileInput").files[0];
     if (!file) return alert("Select file");
@@ -55,6 +63,9 @@ async function upload() {
     loadFiles();
 }
 
+// =========================
+// ANALYZE
+// =========================
 async function analyze() {
     const file = document.getElementById("fileList").value;
     if (!file) return alert("Select file");
@@ -71,24 +82,58 @@ async function analyze() {
         JSON.stringify(data, null, 2);
 }
 
-// 🔒 PAYMENT LOCKED FLOW
+// =========================
+// DOWNLOAD HANDLER
+// =========================
+async function handleDownload(file, ref) {
+    const res = await fetch(`/download/${file}?reference=${ref}`);
+    const data = await res.json();
+
+    if (!data.url) {
+        alert("Download failed");
+        console.error(data);
+        return;
+    }
+
+    window.open(data.url);
+}
+
+// =========================
+// PAYMENT FLOW (LOCKED)
+// =========================
 function payAndDownload() {
     const file = document.getElementById("fileList").value;
     if (!file) return alert("Select file");
 
+    // 🔒 HARD CHECK: Paystack loaded
+    if (typeof PaystackPop === "undefined") {
+        alert("Payment system not loaded. Refresh page.");
+        return;
+    }
+
+    const PUBLIC_KEY = "YOUR_PAYSTACK_PUBLIC_KEY";
+
+    // 🔒 HARD CHECK: key exists
+    if (!PUBLIC_KEY || PUBLIC_KEY === "YOUR_PAYSTACK_PUBLIC_KEY") {
+        alert("Paystack key not configured");
+        return;
+    }
+
     const handler = PaystackPop.setup({
-        key: "YOUR_PAYSTACK_PUBLIC_KEY",
+        key: PUBLIC_KEY,
         email: "user@example.com",
-        amount: 50000, // R500.00 (in kobo)
+        amount: 50000,
         currency: "ZAR",
 
-        callback: async function(response) {
-            const ref = response.reference;
+        callback: function(response) {
+            console.log("Payment success:", response);
 
-            const res = await fetch(`/download/${file}?reference=${ref}`);
-            const data = await res.json();
+            if (!response || !response.reference) {
+                alert("Invalid payment response");
+                return;
+            }
 
-            window.open(data.url);
+            handleDownload(file, response.reference);
         },
 
         onClose: function() {
