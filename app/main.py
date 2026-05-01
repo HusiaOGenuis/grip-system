@@ -1,3 +1,4 @@
+from intelligence import detect_signals
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -125,7 +126,6 @@ from pydantic import BaseModel
 class AnalyzeRequest(BaseModel):
     file_name: str
 
-
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
 
@@ -138,21 +138,29 @@ def analyze(req: AnalyzeRequest):
     data = df.to_dict(orient="records")
 
     score_result = grip_score(data)
+    signals = detect_signals(data)
 
     result = {
         "file_name": file_name,
         "rows": len(df),
         "columns": list(df.columns),
-        "score": score_result
+        "score": score_result,
+        "signals": signals
     }
 
     supabase.table("reports_analysis").insert({
         "file_name": file_name,
         "rows": len(df),
-        "columns": list(df.columns)
+        "columns": list(df.columns),
+        "score": score_result["score"],
+        "completeness": score_result["completeness"],
+        "uniqueness": score_result["uniqueness"],
+        "risk": score_result["risk"],
+        "signals": signals
     }).execute()
 
     return result
+
 # =========================
 # DOWNLOAD (PAYMENT LOCK)
 # =========================
