@@ -4,4 +4,6 @@ python-multipart
 pandas
 reportlab
 psycopg[binary]
+supabase
 requests
+pandas
