@@ -2,8 +2,6 @@
 <html>
 <head>
     <title>GRIP SYSTEM</title>
-
-    <!-- LOAD PAYSTACK FIRST -->
     <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
 
@@ -99,7 +97,7 @@ async function handleDownload(file, ref) {
 }
 
 // =========================
-// PAYMENT FLOW (LOCKED)
+// PAYMENT FLOW
 // =========================
 function payAndDownload() {
     const file = document.getElementById("fileList").value;
@@ -110,14 +108,8 @@ function payAndDownload() {
         return;
     }
 
-    // ✅ REAL KEY HERE (NOT XXXXX)
     const PUBLIC_KEY = "pk_test_f3eb851da078147dc1ea7535ea839b6357f4aa58";
 
-    if (!PUBLIC_KEY) {
-        alert("Paystack key not configured");
-        return;
-    }
-
     const handler = PaystackPop.setup({
         key: PUBLIC_KEY,
         email: "user@example.com",
@@ -125,30 +117,6 @@ function payAndDownload() {
         currency: "ZAR",
 
         callback: function(response) {
-            if (!response || !response.reference) {
-                alert("Invalid payment response");
-                return;
-            }
-
-            handleDownload(file, response.reference);
-        },
-
-        onClose: function() {
-            alert("Payment cancelled");
-        }
-    });
-
-    handler.openIframe();
-}
-    const handler = PaystackPop.setup({
-        key: PUBLIC_KEY,
-        email: "user@example.com",
-        amount: 50000,
-        currency: "ZAR",
-
-        callback: function(response) {
-            console.log("Payment success:", response);
-
             if (!response || !response.reference) {
                 alert("Invalid payment response");
                 return;
