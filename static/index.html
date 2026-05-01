@@ -3,102 +3,121 @@
 <head>
     <title>GRIP SYSTEM</title>
 </head>
+
 <body>
+    <h1>GRIP SYSTEM</h1>
 
-<h1>GRIP SYSTEM</h1>
+    <input type="file" id="fileInput">
+    <button onclick="upload()">Upload</button>
+    <br><br>
 
-<input type="file" id="fileInput">
-<button onclick="upload()">Upload</button>
+    <button onclick="loadFiles()">Load Available Files</button>
+    <select id="fileList"></select>
+    <br><br>
 
-<br><br>
+    <button onclick="analyze()">Analyze Selected</button>
+    <br><br>
 
-<button onclick="loadFiles()">Load Available Files</button>
+    <button onclick="download()">Download Selected</button>
 
-<select id="fileList"></select>
+    <pre id="output"></pre>
 
-<br><br>
+    <script>
+    // =========================
+    // LOAD FILES
+    // =========================
+    async function loadFiles() {
+        const res = await fetch("/files");
+        const data = await res.json();
 
-<button onclick="analyze()">Analyze Selected</button>
+        console.log("FILES RESPONSE:", data);
 
-<br><br>
+        const select = document.getElementById("fileList");
+        select.innerHTML = "";
 
-<button onclick="download()">Download Selected</button>
-
-<br><br>
-
-<pre id="output"></pre>
-
-<script>
-
-async function upload() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) return alert("Select file first");
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    await fetch("/upload", {
-        method: "POST",
-        body: formData
-    });
-
-    alert("Uploaded");
-}
-
-async function loadFiles() {
-    const res = await fetch("/files");
-    const data = await res.json();
-
-    const select = document.getElementById("fileList");
-    select.innerHTML = "";
-
-    data.files.forEach(f => {
-        const opt = document.createElement("option");
-        opt.value = f;
-        opt.text = f;
-        select.appendChild(opt);
-    });
-}
-
-<script>
-async function analyze() {
-    const file = document.getElementById("fileList").value;
-
-    if (!file) {
-        alert("Select file first");
-        return;
+        data.files.forEach(file => {
+            const option = document.createElement("option");
+            option.value = file;
+            option.textContent = file;
+            select.appendChild(option);
+        });
     }
 
-    const res = await fetch("/analyze", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            file_name: file
-        })
-    });
+    // =========================
+    // UPLOAD
+    // =========================
+    async function upload() {
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
 
-    const data = await res.json();
+        if (!file) {
+            alert("Select a file");
+            return;
+        }
 
-    document.getElementById("output").textContent =
-        JSON.stringify(data, null, 2);
-}
-</script>
+        const formData = new FormData();
+        formData.append("file", file);
 
-async function download() {
-    const file = document.getElementById("fileList").value;
-    if (!file) return alert("Select file");
+        await fetch("/upload", {
+            method: "POST",
+            body: formData
+        });
 
-    const ref = prompt("Enter Paystack reference");
+        alert("Uploaded");
+        loadFiles();
+    }
 
-    const res = await fetch(`/download/${file}?reference=${ref}`);
-    const data = await res.json();
+    // =========================
+    // ANALYZE (CONTRACT FIXED)
+    // =========================
+    async function analyze() {
+        const file = document.getElementById("fileList").value;
 
-    window.open(data.url);
-}
+        if (!file) {
+            alert("Select file first");
+            return;
+        }
 
-</script>
+        const res = await fetch("/analyze", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                file_name: file
+            })
+        });
+
+        const data = await res.json();
+
+        document.getElementById("output").textContent =
+            JSON.stringify(data, null, 2);
+    }
+
+    // =========================
+    // DOWNLOAD (PAYSTACK FLOW)
+    // =========================
+    async function download() {
+        const file = document.getElementById("fileList").value;
+
+        if (!file) {
+            alert("Select file");
+            return;
+        }
+
+        const ref = prompt("Enter Paystack reference");
+
+        if (!ref) {
+            alert("Payment reference required");
+            return;
+        }
+
+        const res = await fetch(`/download/${file}?reference=${ref}`);
+        const data = await res.json();
+
+        window.open(data.url);
+    }
+    </script>
 
 </body>
 </html>
