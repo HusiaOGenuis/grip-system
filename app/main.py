@@ -1,4 +1,4 @@
-from intelligence import detect_signals
+from app.intelligence import detect_signals
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
