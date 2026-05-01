@@ -1,32 +1,29 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from supabase import create_client, Client
 
 import uuid
 import os
-import io
 import requests
 import pandas as pd
+import io
 
 # =========================
-# APP INIT
-# =========================
-app = FastAPI()
-
-# =========================
-# CONTRACT: ENVIRONMENT PRECONDITIONS
+# CONTRACT: PRECONDITIONS
 # =========================
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise Exception("❌ SUPABASE ENV VARIABLES NOT SET")
-
-# MUST match Supabase EXACTLY (case-sensitive)
 BUCKET_NAME = "reports"
 
-# Single client instance (NO duplication)
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError("Supabase credentials not set")
+
+# =========================
+# INITIALIZATION
+# =========================
+app = FastAPI()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # =========================
@@ -42,119 +39,80 @@ def read_root():
 
 
 # =========================
-# CONTRACT 1: UPLOAD
-# Precondition: file provided
-# Postcondition: file stored in Supabase
+# CONTRACT MODEL
+# =========================
+class FileRequest(BaseModel):
+    file_name: str
+
+
+# =========================
+# UPLOAD → SUPABASE
 # =========================
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
-    try:
-        if not file:
-            raise HTTPException(status_code=400, detail="No file provided")
+    contents = await file.read()
 
-        contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty file")
 
-        if not contents:
-            raise HTTPException(status_code=400, detail="Empty file")
+    filename = f"{uuid.uuid4()}.csv"
 
-        file_id = str(uuid.uuid4())
-        filename = f"{file_id}.csv"
+    res = supabase.storage.from_(BUCKET_NAME).upload(filename, contents)
 
-        res = supabase.storage.from_(BUCKET_NAME).upload(filename, contents)
+    if hasattr(res, "error") and res.error:
+        raise HTTPException(status_code=500, detail=str(res.error))
 
-        print("UPLOAD RESULT:", res)
-
-        return {
-            "file_id": file_id,
-            "filename": filename,
-            "status": "uploaded"
-        }
-
-    except Exception as e:
-        print("UPLOAD ERROR:", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"file": filename}
 
 
 # =========================
-# CONTRACT 2: LIST FILES
-# Precondition: bucket exists
-# Postcondition: returns stored files
+# LIST FILES FROM SUPABASE
 # =========================
 @app.get("/files")
 def list_files():
-    try:
-        files = supabase.storage.from_(BUCKET_NAME).list()
+    res = supabase.storage.from_(BUCKET_NAME).list()
 
-        # Normalize output
-        return [f["name"] for f in files]
+    files = []
+    for f in res:
+        if "name" in f:
+            files.append(f["name"])
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"files": files}
 
 
 # =========================
-# CONTRACT 3: ANALYZE
-# Precondition: file exists in Supabase
-# Postcondition: returns dataset summary
+# ANALYZE EXISTING FILE
 # =========================
 @app.post("/analyze")
-def analyze(file_name: str):
-    try:
-        if not file_name:
-            raise HTTPException(status_code=400, detail="file_name required")
+def analyze(req: FileRequest):
+    file_name = req.file_name
 
-        signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(file_name, 60)
+    signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(file_name, 60)
 
-        if "signedURL" not in signed:
-            raise HTTPException(status_code=500, detail="Failed to generate signed URL")
+    if "signedURL" not in signed:
+        raise HTTPException(status_code=500, detail="Failed to create signed URL")
 
-        response = requests.get(signed["signedURL"])
+    response = requests.get(signed["signedURL"])
 
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Failed to fetch file")
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="Failed to fetch file")
 
-        df = pd.read_csv(io.StringIO(response.text))
+    df = pd.read_csv(io.StringIO(response.text))
 
-        return {
-            "rows": len(df),
-            "columns": list(df.columns)
-        }
-
-    except Exception as e:
-        print("ANALYZE ERROR:", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "rows": len(df),
+        "columns": list(df.columns)
+    }
 
 
 # =========================
-# CONTRACT 4: DOWNLOAD (SECURE)
-# Precondition: payment verified
-# Postcondition: signed URL returned
+# DOWNLOAD (SECURE CONTRACT)
 # =========================
-@app.get("/download/{file_id}")
-def download(file_id: str):
-    try:
-        if not file_id:
-            raise HTTPException(status_code=400, detail="file_id required")
+@app.get("/download/{file_name}")
+def download(file_name: str):
+    signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(file_name, 60)
 
-        res = supabase.table("reports").select("*").eq("file_id", file_id).execute()
+    if "signedURL" not in signed:
+        raise HTTPException(status_code=500, detail="Download failed")
 
-        if not res.data:
-            raise HTTPException(status_code=404, detail="Report not found")
-
-        record = res.data[0]
-
-        if not record.get("is_paid"):
-            raise HTTPException(status_code=402, detail="Payment required")
-
-        filename = f"{file_id}.csv"
-
-        signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(filename, 60)
-
-        if "signedURL" not in signed:
-            raise HTTPException(status_code=500, detail="Failed to generate download URL")
-
-        return {"url": signed["signedURL"]}
-
-    except Exception as e:
-        print("DOWNLOAD ERROR:", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"download_url": signed["signedURL"]}

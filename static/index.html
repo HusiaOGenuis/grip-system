@@ -1,99 +1,118 @@
-```html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>GRIP Dashboard</title>
-  <script src="https://js.paystack.co/v1/inline.js"></script>
+    <title>GRIP SYSTEM</title>
 </head>
-
 <body>
-  <h2>GRIP SYSTEM</h2>
 
-  <input type="file" id="fileInput" />
-  <button onclick="uploadFile()">Upload & Analyze</button>
+<h1>GRIP SYSTEM</h1>
 
-  <br><br>
+<!-- ========================= -->
+<!-- UPLOAD CONTRACT -->
+<!-- ========================= -->
+<input type="file" id="fileInput">
+<button onclick="uploadFile()">Upload</button>
 
-  <button onclick="payNow()">Unlock Full Report (R50)</button>
+<br><br>
 
-  <br><br>
+<!-- ========================= -->
+<!-- LOAD FILES FROM SUPABASE -->
+<!-- ========================= -->
+<button onclick="loadFiles()">Load Available Files</button>
 
-  <button onclick="downloadReport()">Download Report</button>
+<select id="fileList"></select>
 
-  <script>
-    let currentFileId = null;
-    let userEmail = "user@example.com"; // replace with real input later
+<br><br>
 
-    async function uploadFile() {
-      const file = document.getElementById("fileInput").files[0];
-      const formData = new FormData();
-      formData.append("file", file);
+<!-- ========================= -->
+<!-- ANALYZE -->
+<!-- ========================= -->
+<button onclick="analyzeFile()">Analyze Selected</button>
 
-      const res = await fetch("/upload", {
-        method: "POST",
+<br><br>
+
+<!-- ========================= -->
+<!-- DOWNLOAD -->
+<!-- ========================= -->
+<button onclick="downloadFile()">Download Selected</button>
+
+<br><br>
+
+<!-- ========================= -->
+<!-- OUTPUT -->
+<!-- ========================= -->
+<pre id="output"></pre>
+
+<script>
+
+async function uploadFile() {
+    const fileInput = document.getElementById('fileInput');
+
+    if (!fileInput.files.length) {
+        alert("Select a file first");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    const res = await fetch('/upload', {
+        method: 'POST',
         body: formData
-      });
+    });
 
-      const data = await res.json();
-      currentFileId = data.file_id;
+    const data = await res.json();
+    document.getElementById('output').innerText = JSON.stringify(data, null, 2);
+}
 
-      alert("Uploaded + Analyzed");
-    }
+async function loadFiles() {
+    const res = await fetch('/files');
+    const data = await res.json();
 
-    function payNow() {
-      if (!currentFileId) {
-        alert("Upload file first");
+    const select = document.getElementById('fileList');
+    select.innerHTML = '';
+
+    data.files.forEach(file => {
+        const opt = document.createElement('option');
+        opt.value = file;
+        opt.text = file;
+        select.appendChild(opt);
+    });
+}
+
+async function analyzeFile() {
+    const file = document.getElementById('fileList').value;
+
+    if (!file) {
+        alert("No file selected");
         return;
-      }
-
-      let handler = PaystackPop.setup({
-        key: "pk_test_xxxxxxxxxxxxxxxxxxxxx", // 🔴 REPLACE WITH YOUR PUBLIC KEY
-        email: userEmail,
-        amount: 5000, // 50 ZAR (in kobo)
-        currency: "ZAR",
-        ref: "GRIP-" + Math.floor((Math.random() * 1000000000) + 1),
-
-        callback: function(response) {
-          verifyPayment(response.reference);
-        },
-
-        onClose: function() {
-          alert("Payment window closed");
-        }
-      });
-
-      handler.openIframe();
     }
 
-    async function verifyPayment(reference) {
-      const res = await fetch("/verify-payment", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          reference: reference,
-          file_id: currentFileId
-        })
-      });
+    const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_name: file })
+    });
 
-      const data = await res.json();
+    const data = await res.json();
+    document.getElementById('output').innerText = JSON.stringify(data, null, 2);
+}
 
-      if (data.status === "success") {
-        alert("Payment verified. You can now download.");
-      } else {
-        alert("Verification failed");
-      }
-    }
+async function downloadFile() {
+    const file = document.getElementById('fileList').value;
 
-    async function downloadReport() {
-      if (!currentFileId) {
-        alert("Upload first");
+    if (!file) {
+        alert("No file selected");
         return;
-      }
-
-      window.location.href = `/download/${currentFileId}`;
     }
-  </script>
+
+    const res = await fetch(`/download/${file}`);
+    const data = await res.json();
+
+    window.open(data.download_url, '_blank');
+}
+
+</script>
+
 </body>
 </html>
-```
