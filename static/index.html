@@ -1,136 +1,108 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GRIP SYSTEM</title>
-    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <title>GRIP Intelligence Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
-    <h1>GRIP SYSTEM</h1>
 
-    <input type="file" id="fileInput">
-    <button onclick="upload()">Upload</button>
-    <br><br>
+<h2>GRIP Intelligence</h2>
 
-    <button onclick="loadFiles()">Load Available Files</button>
-    <select id="fileList"></select>
-    <br><br>
+<input id="apiKey" placeholder="API Key" />
 
-    <button onclick="analyze()">Analyze Selected</button>
-    <br><br>
+<hr>
 
-    <button onclick="payAndDownload()">Download Selected</button>
+<input type="file" id="fileInput" />
+<button onclick="upload()">Upload</button>
 
-    <pre id="output"></pre>
+<hr>
+
+<button onclick="loadFiles()">Load Files</button>
+<select id="fileSelect"></select>
+
+<button onclick="analyze()">Analyze Selected</button>
+
+<hr>
+
+<button onclick="loadReports()">Load Dashboard</button>
+<canvas id="chart"></canvas>
+
+<pre id="output"></pre>
 
 <script>
-// =========================
-// LOAD FILES
-// =========================
-async function loadFiles() {
-    const res = await fetch("/files");
-    const data = await res.json();
+const API = "https://grip-system.onrender.com";
 
-    const select = document.getElementById("fileList");
-    select.innerHTML = "";
-
-    data.files.forEach(file => {
-        const option = document.createElement("option");
-        option.value = file;
-        option.textContent = file;
-        select.appendChild(option);
-    });
+function key() {
+    return document.getElementById("apiKey").value;
 }
 
-// =========================
-// UPLOAD
-// =========================
 async function upload() {
     const file = document.getElementById("fileInput").files[0];
-    if (!file) return alert("Select file");
+    const form = new FormData();
+    form.append("file", file);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    await fetch("/upload", {
+    const res = await fetch(API + "/upload", {
         method: "POST",
-        body: formData
+        headers: {"X-API-KEY": key()},
+        body: form
     });
 
-    alert("Uploaded");
-    loadFiles();
+    alert(await res.text());
 }
 
-// =========================
-// ANALYZE
-// =========================
+async function loadFiles() {
+    const res = await fetch(API + "/files", {
+        headers: {"X-API-KEY": key()}
+    });
+
+    const data = await res.json();
+    const select = document.getElementById("fileSelect");
+    select.innerHTML = "";
+
+    data.files.forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f.name;
+        opt.textContent = f.name;
+        select.appendChild(opt);
+    });
+}
+
 async function analyze() {
-    const file = document.getElementById("fileList").value;
-    if (!file) return alert("Select file");
+    const filename = document.getElementById("fileSelect").value;
 
-    const res = await fetch("/analyze", {
+    const res = await fetch(API + "/analyze?filename=" + filename, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ file_name: file })
+        headers: {"X-API-KEY": key()}
+    });
+
+    const data = await res.json();
+    document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+}
+
+async function loadReports() {
+    const res = await fetch(API + "/reports", {
+        headers: {"X-API-KEY": key()}
     });
 
     const data = await res.json();
 
-    document.getElementById("output").textContent =
-        JSON.stringify(data, null, 2);
-}
+    const labels = data.map(r => r.file_name);
+    const fraudScores = data.map(r => r.fraud.score);
+    const risks = data.map(r => r.fraud.risk);
 
-// =========================
-// DOWNLOAD HANDLER
-// =========================
-async function handleDownload(file, ref) {
-    const res = await fetch(`/download/${file}?reference=${ref}`);
-    const data = await res.json();
-
-    if (!data.url) {
-        alert("Download failed");
-        console.error(data);
-        return;
-    }
-
-    window.open(data.url);
-}
-
-// =========================
-// PAYMENT FLOW
-// =========================
-function payAndDownload() {
-    const file = document.getElementById("fileList").value;
-    if (!file) return alert("Select file");
-
-    if (typeof PaystackPop === "undefined") {
-        alert("Payment system not loaded. Refresh page.");
-        return;
-    }
-
-    const PUBLIC_KEY = "pk_test_f3eb851da078147dc1ea7535ea839b6357f4aa58";
-
-    const handler = PaystackPop.setup({
-        key: PUBLIC_KEY,
-        email: "user@example.com",
-        amount: 50000,
-        currency: "ZAR",
-
-        callback: function(response) {
-            if (!response || !response.reference) {
-                alert("Invalid payment response");
-                return;
-            }
-
-            handleDownload(file, response.reference);
-        },
-
-        onClose: function() {
-            alert("Payment cancelled");
+    new Chart(document.getElementById("chart"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Fraud Score",
+                data: fraudScores
+            }]
         }
     });
 
-    handler.openIframe();
+    console.log("Risk Levels:", risks);
 }
 </script>
 

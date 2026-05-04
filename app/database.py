@@ -1,38 +1,14 @@
-import psycopg
+from supabase import create_client, Client
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-def get_conn():
-    return psycopg.connect(DATABASE_URL)
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise Exception("Supabase credentials missing")
 
-def init_db():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-            # -----------------------------
-            # DATASETS (SAFE)
-            # -----------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS datasets (
-                id TEXT PRIMARY KEY,
-                filename TEXT,
-                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """)
+# ✅ SINGLE SOURCE OF TRUTH
+BUCKET = "reports"
 
-            # -----------------------------
-            # 🔥 FORCE RESET PAYMENTS TABLE
-            # -----------------------------
-            cur.execute("""
-            DROP TABLE IF EXISTS payments;
-            """)
-
-            cur.execute("""
-            CREATE TABLE payments (
-                dataset_id TEXT PRIMARY KEY,
-                is_paid BOOLEAN DEFAULT FALSE
-            );
-            """)
-
-            conn.commit()
