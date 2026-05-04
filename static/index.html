@@ -68,8 +68,6 @@
         </tr>
     </thead>
     <tbody></tbody>
-</table>
-
 <script>
 const API = "https://gripsystem.onrender.com";
 
@@ -77,20 +75,48 @@ async function loadReports() {
     const res = await fetch(`${API}/reports`);
     const data = await res.json();
 
+    console.log("API DATA:", data);
+
     const tbody = document.querySelector("#reports tbody");
     tbody.innerHTML = "";
 
-    data.forEach(r => {
-        const analysis = r.analysis;
-
+    data.forEach(report => {
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-            <td>${analysis.file_name}</td>
-            <td>${analysis.summary.rows}</td>
-            <td>${analysis.quality.score}</td>
-            <td class="${analysis.fraud.risk === 'HIGH' ? 'high' : 'low'}">
-                ${analysis.fraud.risk}
+            <td>${report.file_name}</td>
+            <td>${report.rows}</td>
+            <td>${report.score}</td>
+            <td class="${report.risk === 'HIGH' ? 'high' : 'low'}">
+                ${report.risk}
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+</script></table>
+<script>
+const API = "https://gripsystem.onrender.com";
+
+async function loadReports() {
+    const res = await fetch(`${API}/reports`);
+    const data = await res.json();
+
+    console.log("API DATA:", data); // DEBUG VISIBILITY
+
+    const tbody = document.querySelector("#reports tbody");
+    tbody.innerHTML = "";
+
+    data.forEach(report => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${report.file_name}</td>
+            <td>${report.rows}</td>
+            <td>${report.score}</td>
+            <td class="${report.risk === 'HIGH' ? 'high' : 'low'}">
+                ${report.risk}
             </td>
         `;
 
