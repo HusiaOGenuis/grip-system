@@ -12,6 +12,7 @@ import uuid
 import os
 import io
 from datetime import datetime
+from fastapi.responses import FileResponse
 
 # =========================
 # ENV VALIDATION (HARD FAIL)
@@ -45,7 +46,12 @@ class AnalysisContract(BaseModel):
     fraud: dict
     signals: list
     signal_counts: dict
-
+# =========================
+# DASHBOARD
+# =========================   
+@app.get("/dashboard")
+def dashboard():
+    return FileResponse("static/index.html")
 # =========================
 # VALIDATION
 # =========================

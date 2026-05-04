@@ -1,108 +1,101 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GRIP Intelligence Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
+    <title>GRIP Dashboard</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+        }
 
+        h1 {
+            color: #38bdf8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #334155;
+            text-align: left;
+        }
+
+        th {
+            background: #1e293b;
+        }
+
+        tr:hover {
+            background: #1e293b;
+        }
+
+        .high {
+            color: #ef4444;
+        }
+
+        .low {
+            color: #22c55e;
+        }
+
+        button {
+            background: #38bdf8;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            color: black;
+            font-weight: bold;
+        }
+    </style>
+</head>
 <body>
 
-<h2>GRIP Intelligence</h2>
+<h1>GRIP Risk Dashboard</h1>
 
-<input id="apiKey" placeholder="API Key" />
+<button onclick="loadReports()">Load Reports</button>
 
-<hr>
-
-<input type="file" id="fileInput" />
-<button onclick="upload()">Upload</button>
-
-<hr>
-
-<button onclick="loadFiles()">Load Files</button>
-<select id="fileSelect"></select>
-
-<button onclick="analyze()">Analyze Selected</button>
-
-<hr>
-
-<button onclick="loadReports()">Load Dashboard</button>
-<canvas id="chart"></canvas>
-
-<pre id="output"></pre>
+<table id="reports">
+    <thead>
+        <tr>
+            <th>File</th>
+            <th>Rows</th>
+            <th>Score</th>
+            <th>Risk</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 
 <script>
-const API = "https://grip-system.onrender.com";
-
-function key() {
-    return document.getElementById("apiKey").value;
-}
-
-async function upload() {
-    const file = document.getElementById("fileInput").files[0];
-    const form = new FormData();
-    form.append("file", file);
-
-    const res = await fetch(API + "/upload", {
-        method: "POST",
-        headers: {"X-API-KEY": key()},
-        body: form
-    });
-
-    alert(await res.text());
-}
-
-async function loadFiles() {
-    const res = await fetch(API + "/files", {
-        headers: {"X-API-KEY": key()}
-    });
-
-    const data = await res.json();
-    const select = document.getElementById("fileSelect");
-    select.innerHTML = "";
-
-    data.files.forEach(f => {
-        const opt = document.createElement("option");
-        opt.value = f.name;
-        opt.textContent = f.name;
-        select.appendChild(opt);
-    });
-}
-
-async function analyze() {
-    const filename = document.getElementById("fileSelect").value;
-
-    const res = await fetch(API + "/analyze?filename=" + filename, {
-        method: "POST",
-        headers: {"X-API-KEY": key()}
-    });
-
-    const data = await res.json();
-    document.getElementById("output").textContent = JSON.stringify(data, null, 2);
-}
+const API = "https://gripsystem.onrender.com";
 
 async function loadReports() {
-    const res = await fetch(API + "/reports", {
-        headers: {"X-API-KEY": key()}
-    });
-
+    const res = await fetch(`${API}/reports`);
     const data = await res.json();
 
-    const labels = data.map(r => r.file_name);
-    const fraudScores = data.map(r => r.fraud.score);
-    const risks = data.map(r => r.fraud.risk);
+    const tbody = document.querySelector("#reports tbody");
+    tbody.innerHTML = "";
 
-    new Chart(document.getElementById("chart"), {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Fraud Score",
-                data: fraudScores
-            }]
-        }
+    data.forEach(r => {
+        const analysis = r.analysis;
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${analysis.file_name}</td>
+            <td>${analysis.summary.rows}</td>
+            <td>${analysis.quality.score}</td>
+            <td class="${analysis.fraud.risk === 'HIGH' ? 'high' : 'low'}">
+                ${analysis.fraud.risk}
+            </td>
+        `;
+
+        tbody.appendChild(tr);
     });
-
-    console.log("Risk Levels:", risks);
 }
 </script>
 
