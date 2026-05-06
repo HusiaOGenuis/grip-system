@@ -45,8 +45,9 @@ def normalize_types(df: pd.DataFrame) -> pd.DataFrame:
 
             converted = pd.to_numeric(cleaned, errors="coerce")
 
-            # if majority converts → treat as numeric
-            if converted.notna().sum() > len(s) * 0.6:
+            numeric_ratio = converted.notna().mean()
+
+            if numeric_ratio > 0.3:
                 df[col] = converted
 
     return df
@@ -174,9 +175,14 @@ def explain(df, profile, anomalies, correlations):
 
 
 # -------------------------
-# MAIN
+# MAIN (CRITICAL)
 # -------------------------
-def analyze_dataframe(df, *, user_id: str, object_path: str):
+def analyze_dataframe(
+    df: pd.DataFrame,
+    *,
+    user_id: str,
+    object_path: str,
+) -> Dict[str, Any]:
 
     df = normalize_types(df)
 
