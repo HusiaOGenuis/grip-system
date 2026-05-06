@@ -61,7 +61,7 @@ def sign_upload(req: SignUploadRequest):
 
     data = resp.json()
 
-    upload_url = f"{SUPABASE_URL}/storage/v1{data['signedURL']}"
+    url = f"{SUPABASE_URL}/storage/v1/object/upload/sign/{object_path}"
 
     return {
         "upload_url": upload_url,
