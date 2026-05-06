@@ -38,16 +38,17 @@ class AnalyzeRequest(BaseModel):
 # SIGNED UPLOAD
 # =========================
 
-@app.post("/sign-upload")
-def sign_upload(req: SignUploadRequest):
+import requests
 
+@app.post("/sign-upload")
+def sign_upload(req: SignRequest):
     object_path = f"{SUPABASE_BUCKET}/{req.filename}"
 
     url = f"{SUPABASE_URL}/storage/v1/object/sign/{object_path}"
 
     headers = {
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
     }
 
     payload = {
@@ -57,10 +58,7 @@ def sign_upload(req: SignUploadRequest):
     resp = requests.post(url, json=payload, headers=headers)
 
     if resp.status_code != 200:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to sign upload URL: {resp.text}"
-        )
+        raise HTTPException(status_code=500, detail=resp.text)
 
     data = resp.json()
 
