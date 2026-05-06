@@ -22,46 +22,21 @@ HEADERS = {
 def fetch_csv(object_path: str) -> pd.DataFrame:
     url = f"{SUPABASE_URL}/storage/v1/object/{object_path}"
     resp = requests.get(url, headers=HEADERS, timeout=5)
-
     if resp.status_code != 200:
         raise RuntimeError(f"Failed to fetch CSV: {resp.text}")
-
     return pd.read_csv(StringIO(resp.text))
 
 
 # -------------------------
-# SMART TYPE INFERENCE (FIXED)
+# TYPE NORMALIZATION (SAFE)
 # -------------------------
 def normalize_types(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
         s = df[col]
-
         if s.dtype == object:
-
-            # 🔹 Attempt direct numeric conversion first
             direct = pd.to_numeric(s, errors="coerce")
-
-            direct_ratio = direct.notna().mean()
-
-            # 🔹 If direct works → use it
-            if direct_ratio > 0.5:
+            if direct.notna().mean() > 0.5:
                 df[col] = direct
-                continue
-
-            # 🔹 Otherwise clean then retry
-            cleaned = (
-                s.astype(str)
-                .str.replace(",", "")
-                .str.replace("R", "", regex=False)
-                .str.replace(" ", "")
-            )
-
-            converted = pd.to_numeric(cleaned, errors="coerce")
-            cleaned_ratio = converted.notna().mean()
-
-            if cleaned_ratio > 0.3:
-                df[col] = converted
-
     return df
 
 
@@ -79,10 +54,8 @@ def dataset_hash(df: pd.DataFrame) -> str:
 # -------------------------
 def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
     profile = {}
-
     for col in df.columns:
         s = df[col]
-
         info = {
             "dtype": str(s.dtype),
             "null_ratio": float(s.isna().mean()),
@@ -102,8 +75,112 @@ def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
             info["type"] = "categorical"
 
         profile[col] = info
-
     return profile
+
+
+# -------------------------
+# MIXED TYPE DETECTION
+# -------------------------
+def detect_mixed_types(df: pd.DataFrame) -> Dict[str, Any]:
+    issues = {}
+
+    for col in df.columns:
+        s = df[col]
+
+        if s.dtype == object:
+            numeric_attempt = pd.to_numeric(s, errors="coerce")
+            numeric_ratio = numeric_attempt.notna().mean()
+
+            if 0.1 < numeric_ratio < 0.9:
+                issues[col] = {
+                    "type": "mixed",
+                    "numeric_ratio": float(numeric_ratio),
+                    "note": "Column contains both numeric-like and text values"
+                }
+
+    return issues
+
+
+# -------------------------
+# DATE VALIDATION
+# -------------------------
+def detect_date_issues(df: pd.DataFrame) -> Dict[str, Any]:
+    issues = {}
+
+    for col in df.columns:
+        s = df[col]
+
+        if s.dtype == object:
+            parsed = pd.to_datetime(s, errors="coerce")
+            ratio = parsed.notna().mean()
+
+            if ratio > 0.5 and ratio < 1.0:
+                issues[col] = {
+                    "type": "partial_datetime",
+                    "parse_ratio": float(ratio),
+                    "note": "Some values look like dates but others do not"
+                }
+
+    return issues
+
+
+# -------------------------
+# MISSINGNESS
+# -------------------------
+def detect_missingness(df: pd.DataFrame) -> Dict[str, Any]:
+    issues = {}
+
+    for col in df.columns:
+        null_ratio = df[col].isna().mean()
+
+        if null_ratio > 0.3:
+            issues[col] = {
+                "type": "missing_values",
+                "null_ratio": float(null_ratio),
+                "note": "High proportion of missing values"
+            }
+
+    return issues
+
+
+# -------------------------
+# DATA QUALITY ENGINE
+# -------------------------
+def data_quality_report(df: pd.DataFrame) -> Dict[str, Any]:
+    mixed = detect_mixed_types(df)
+    dates = detect_date_issues(df)
+    missing = detect_missingness(df)
+
+    column_issues = {}
+
+    for col in df.columns:
+        col_flags = []
+
+        if col in mixed:
+            col_flags.append(mixed[col])
+
+        if col in dates:
+            col_flags.append(dates[col])
+
+        if col in missing:
+            col_flags.append(missing[col])
+
+        if col_flags:
+            column_issues[col] = col_flags
+
+    total_cols = len(df.columns)
+    problematic = len(column_issues)
+
+    health_score = 1 - (problematic / total_cols if total_cols else 0)
+
+    return {
+        "column_issues": column_issues,
+        "summary": {
+            "total_columns": total_cols,
+            "columns_with_issues": problematic,
+            "health_score": round(health_score, 3)
+        }
+    }
 
 
 # -------------------------
@@ -162,7 +239,7 @@ def detect_correlations(df: pd.DataFrame) -> Dict[str, float]:
 # -------------------------
 # EXPLAIN
 # -------------------------
-def explain(df, profile, anomalies, correlations):
+def explain(df, profile, anomalies, correlations, quality):
     parts = []
 
     parts.append(f"Dataset has {len(df)} rows and {len(df.columns)} columns.")
@@ -172,16 +249,10 @@ def explain(df, profile, anomalies, correlations):
     else:
         parts.append("No significant anomalies detected.")
 
-    numeric_cols = [
-        col for col, p in profile.items()
-        if p["type"] == "numeric"
-    ]
-
-    if numeric_cols:
-        parts.append(f"Numeric columns detected: {numeric_cols}.")
-
-    if correlations:
-        parts.append(f"Strong correlations: {list(correlations.keys())[:3]}.")
+    if quality["summary"]["columns_with_issues"] > 0:
+        parts.append(
+            f"{quality['summary']['columns_with_issues']} columns have data quality issues."
+        )
 
     return " ".join(parts)
 
@@ -204,12 +275,15 @@ def analyze_dataframe(
     profile = profile_columns(df)
     anomalies = detect_anomalies(df)
     correlations = detect_correlations(df)
-    explanation = explain(df, profile, anomalies, correlations)
+    quality = data_quality_report(df)
+
+    explanation = explain(df, profile, anomalies, correlations, quality)
 
     return {
         "request_id": request_id,
         "dataset_hash": h,
         "profile": profile,
+        "data_quality": quality,
         "anomalies": anomalies,
         "correlations": correlations,
         "explanation": explanation,
