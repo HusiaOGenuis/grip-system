@@ -4,56 +4,27 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# =========================
-# LOAD ENV FILE (CRITICAL)
-# =========================
 load_dotenv()
-
-# =========================
-# ENV VALIDATION (FAIL FAST)
-# =========================
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
 
-missing = []
-
-if not SUPABASE_URL:
-    missing.append("SUPABASE_URL")
-
-if not SUPABASE_SERVICE_ROLE_KEY:
-    missing.append("SUPABASE_SERVICE_ROLE_KEY")
-
-if not SUPABASE_BUCKET:
-    missing.append("SUPABASE_BUCKET")
-
-if missing:
-    raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
-
-# =========================
-# FASTAPI INIT
-# =========================
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not SUPABASE_BUCKET:
+    raise RuntimeError("Missing required env vars")
 
 app = FastAPI()
-
-# =========================
-# REQUEST MODEL
-# =========================
 
 class SignUploadRequest(BaseModel):
     filename: str
     expires_in: int = 60
-
-# =========================
-# SIGNED URL ENDPOINT
-# =========================
 
 @app.post("/sign-upload")
 def sign_upload(req: SignUploadRequest):
 
     object_path = f"{SUPABASE_BUCKET}/{req.filename}"
 
+    # ✅ THIS IS THE CRITICAL FIX
     url = f"{SUPABASE_URL}/storage/v1/object/sign/{object_path}"
 
     headers = {
@@ -80,10 +51,6 @@ def sign_upload(req: SignUploadRequest):
         "path": object_path,
         "expires_in": req.expires_in
     }
-
-# =========================
-# HEALTH CHECK
-# =========================
 
 @app.get("/health")
 def health():
