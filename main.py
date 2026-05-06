@@ -1,3 +1,6 @@
+print("=== RUNNING THIS FILE ===")
+print("RUNNING CORRECT MAIN.PY")
+print("=== THIS IS THE ACTIVE MAIN.PY ===")
 import os
 import requests
 import tempfile
