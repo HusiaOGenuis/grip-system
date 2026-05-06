@@ -61,6 +61,14 @@ def sign_upload(req: SignUploadRequest):
 
     data = resp.json()
 
+    upload_url = f"{SUPABASE_URL}/storage/v1{data['signedURL']}"
+
+    return {
+        "upload_url": upload_url,
+        "path": object_path,
+        "expires_in": req.expires_in
+    }data = resp.json()
+
     return {
         "upload_url": f"{SUPABASE_URL}{data['signedURL']}",
         "path": object_path,
