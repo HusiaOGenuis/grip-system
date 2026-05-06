@@ -7,9 +7,6 @@ import numpy as np
 from io import StringIO
 from typing import Dict, Any
 
-# -------------------------
-# ENV
-# -------------------------
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -20,7 +17,7 @@ HEADERS = {
 }
 
 # -------------------------
-# FETCH CSV
+# FETCH
 # -------------------------
 def fetch_csv(object_path: str) -> pd.DataFrame:
     url = f"{SUPABASE_URL}/storage/v1/object/{object_path}"
@@ -33,6 +30,29 @@ def fetch_csv(object_path: str) -> pd.DataFrame:
 
 
 # -------------------------
+# TYPE NORMALIZATION
+# -------------------------
+def normalize_types(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.columns:
+        s = df[col]
+
+        if s.dtype == object:
+            cleaned = (
+                s.astype(str)
+                .str.replace(r"[^\d\.\-]", "", regex=True)
+                .replace("", np.nan)
+            )
+
+            converted = pd.to_numeric(cleaned, errors="coerce")
+
+            # if majority converts → treat as numeric
+            if converted.notna().sum() > len(s) * 0.6:
+                df[col] = converted
+
+    return df
+
+
+# -------------------------
 # HASH
 # -------------------------
 def dataset_hash(df: pd.DataFrame) -> str:
@@ -42,7 +62,7 @@ def dataset_hash(df: pd.DataFrame) -> str:
 
 
 # -------------------------
-# COLUMN PROFILING
+# PROFILE
 # -------------------------
 def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
     profile = {}
@@ -50,14 +70,14 @@ def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
     for col in df.columns:
         s = df[col]
 
-        col_info = {
+        info = {
             "dtype": str(s.dtype),
             "null_ratio": float(s.isna().mean()),
             "unique": int(s.nunique()),
         }
 
         if pd.api.types.is_numeric_dtype(s):
-            col_info.update({
+            info.update({
                 "type": "numeric",
                 "mean": float(s.mean()) if not s.dropna().empty else None,
                 "std": float(s.std()) if not s.dropna().empty else None,
@@ -65,20 +85,16 @@ def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
                 "max": float(s.max()) if not s.dropna().empty else None,
                 "skew": float(s.skew()) if not s.dropna().empty else None,
             })
-
-        elif pd.api.types.is_datetime64_any_dtype(s):
-            col_info["type"] = "datetime"
-
         else:
-            col_info["type"] = "categorical"
+            info["type"] = "categorical"
 
-        profile[col] = col_info
+        profile[col] = info
 
     return profile
 
 
 # -------------------------
-# ANOMALY DETECTION
+# ANOMALIES
 # -------------------------
 def detect_anomalies(df: pd.DataFrame) -> Dict[str, Any]:
     numeric = df.select_dtypes(include=[np.number])
@@ -106,7 +122,7 @@ def detect_anomalies(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 # -------------------------
-# CORRELATION DETECTION
+# CORRELATION
 # -------------------------
 def detect_correlations(df: pd.DataFrame) -> Dict[str, float]:
     numeric = df.select_dtypes(include=[np.number])
@@ -125,55 +141,46 @@ def detect_correlations(df: pd.DataFrame) -> Dict[str, float]:
             val = corr.loc[i, j]
 
             if abs(val) > 0.7:
-                key = f"{i} ↔ {j}"
-                pairs[key] = float(val)
+                pairs[f"{i} ↔ {j}"] = float(val)
 
     return pairs
 
 
 # -------------------------
-# EXPLANATION ENGINE
+# EXPLAIN
 # -------------------------
-def explain(df, profile, anomalies, correlations) -> str:
+def explain(df, profile, anomalies, correlations):
     parts = []
 
     parts.append(f"Dataset has {len(df)} rows and {len(df.columns)} columns.")
 
-    # anomalies
     if anomalies:
-        cols = list(anomalies.keys())
-        parts.append(f"Anomalies detected in columns: {cols}.")
+        parts.append(f"Anomalies in: {list(anomalies.keys())}.")
     else:
         parts.append("No significant anomalies detected.")
 
-    # skew detection
-    skewed = [
-        col for col, info in profile.items()
-        if info.get("type") == "numeric" and info.get("skew") and abs(info["skew"]) > 1
+    numeric_cols = [
+        col for col, p in profile.items()
+        if p["type"] == "numeric"
     ]
-    if skewed:
-        parts.append(f"Skewed distributions observed in: {skewed}.")
 
-    # correlations
+    if numeric_cols:
+        parts.append(f"Numeric columns detected: {numeric_cols}.")
+
     if correlations:
-        top = list(correlations.keys())[:3]
-        parts.append(f"Strong correlations found: {top}.")
+        parts.append(f"Strong correlations: {list(correlations.keys())[:3]}.")
 
     return " ".join(parts)
 
 
 # -------------------------
-# MAIN ANALYSIS
+# MAIN
 # -------------------------
-def analyze_dataframe(
-    df: pd.DataFrame,
-    *,
-    user_id: str,
-    object_path: str,
-) -> Dict[str, Any]:
+def analyze_dataframe(df, *, user_id: str, object_path: str):
+
+    df = normalize_types(df)
 
     request_id = str(uuid.uuid4())
-
     h = dataset_hash(df)
 
     profile = profile_columns(df)
