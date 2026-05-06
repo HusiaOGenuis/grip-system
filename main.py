@@ -141,10 +141,7 @@ def sign_upload(req: SignRequest, request: Request):
 # -----------------------------------
 @app.get("/analyze")
 def analyze(path: str, user_id: str):
-    """
-    Locked AI analysis pipeline.
-    """
-    with tracer.start_as_current_span("analyze"):
+    try:
         df = fetch_csv(path)
 
         result = analyze_dataframe(
@@ -156,6 +153,13 @@ def analyze(path: str, user_id: str):
         return {
             "status": "success",
             "analysis": result,
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "path": path
         }
 @app.post("/ask")
 def ask(question: str, user_id: str):
