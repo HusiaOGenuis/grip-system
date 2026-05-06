@@ -157,3 +157,24 @@ def analyze(path: str, user_id: str):
             "status": "success",
             "analysis": result,
         }
+@app.post("/ask")
+def ask(question: str, user_id: str):
+    """
+    Semantic RAG over uploaded datasets.
+    """
+    query_vec = generate_real_embedding(question)
+
+    matches = retrieve_similar_datasets(query_vec)
+
+    context = [
+        f"Dataset {m['dataset_hash']} (similarity {m['similarity']:.3f})"
+        for m in matches
+    ]
+
+    answer = generate_answer(question, context)
+
+    return {
+        "question": question,
+        "answer": answer,
+        "sources": matches,
+    }
