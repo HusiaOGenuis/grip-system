@@ -5,8 +5,7 @@ from core.supabase_rest_client import SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKE
 def handle_upload(contents: bytes, filename: str, user_id: str):
     path = f"{user_id}/{filename}"
 
-    url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
-
+    url = f"{SUPABASE_URL}/storage/v1/object/upload/sign/{object_path}"
     headers = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
