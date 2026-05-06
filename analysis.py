@@ -30,24 +30,36 @@ def fetch_csv(object_path: str) -> pd.DataFrame:
 
 
 # -------------------------
-# TYPE NORMALIZATION
+# SMART TYPE INFERENCE (FIXED)
 # -------------------------
 def normalize_types(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
         s = df[col]
 
         if s.dtype == object:
+
+            # 🔹 Attempt direct numeric conversion first
+            direct = pd.to_numeric(s, errors="coerce")
+
+            direct_ratio = direct.notna().mean()
+
+            # 🔹 If direct works → use it
+            if direct_ratio > 0.5:
+                df[col] = direct
+                continue
+
+            # 🔹 Otherwise clean then retry
             cleaned = (
                 s.astype(str)
-                .str.replace(r"[^\d\.\-]", "", regex=True)
-                .replace("", np.nan)
+                .str.replace(",", "")
+                .str.replace("R", "", regex=False)
+                .str.replace(" ", "")
             )
 
             converted = pd.to_numeric(cleaned, errors="coerce")
+            cleaned_ratio = converted.notna().mean()
 
-            numeric_ratio = converted.notna().mean()
-
-            if numeric_ratio > 0.3:
+            if cleaned_ratio > 0.3:
                 df[col] = converted
 
     return df
@@ -175,7 +187,7 @@ def explain(df, profile, anomalies, correlations):
 
 
 # -------------------------
-# MAIN (CRITICAL)
+# MAIN
 # -------------------------
 def analyze_dataframe(
     df: pd.DataFrame,
