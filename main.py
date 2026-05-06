@@ -1,17 +1,16 @@
-# -----------------------------------
-# Environment loading (local only)
-# -----------------------------------
+# main.py
+
 from dotenv import load_dotenv
 load_dotenv(".env")
 
 # -----------------------------------
-# Preflight gate (FAIL FAST)
+# Preflight (FAIL FAST)
 # -----------------------------------
 from preflight import run_preflight
 run_preflight()
 
 # -----------------------------------
-# OpenTelemetry (minimal, production-correct)
+# OpenTelemetry
 # -----------------------------------
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -21,11 +20,10 @@ trace.set_tracer_provider(TracerProvider())
 trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(ConsoleSpanExporter())
 )
-
 tracer = trace.get_tracer(__name__)
 
 # -----------------------------------
-# Standard imports
+# Framework imports
 # -----------------------------------
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
@@ -38,7 +36,7 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 # -----------------------------------
-# AI / Analysis imports
+# Analysis imports (MATCHES analysis.py)
 # -----------------------------------
 from analysis import fetch_csv, analyze_dataframe
 
@@ -48,24 +46,21 @@ from analysis import fetch_csv, analyze_dataframe
 app = FastAPI()
 
 # -----------------------------------
-# Environment variables
+# Environment
 # -----------------------------------
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not SUPABASE_BUCKET:
-    raise RuntimeError("Critical env vars missing after preflight")
+    raise RuntimeError("Critical env vars missing")
 
 # -----------------------------------
-# Policies & limits
+# Policies
 # -----------------------------------
-
-CSV_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9_\-]{0,60}\.csv$")
-
-RATE_LIMIT_WINDOW = 60      # seconds
-RATE_LIMIT_MAX = 10         # requests per window
-
+CSV_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,60}\.csv$")
+RATE_WINDOW = 60
+RATE_MAX = 10
 _rate_limit: Dict[Tuple[str, str], list] = {}
 
 # -----------------------------------
@@ -77,35 +72,29 @@ class SignRequest(BaseModel):
     expires_in: int = 60
 
 # -----------------------------------
-# Utilities
+# Helpers
 # -----------------------------------
-def build_headers():
+def headers():
     return {
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Content-Type": "application/json",
     }
 
-def sanitize_filename(filename: str) -> str:
+def sanitize(filename: str) -> str:
     name = Path(filename).name.lower()
     if not CSV_FILENAME_RE.fullmatch(name):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid filename. Must be lowercase CSV with safe characters."
-        )
+        raise HTTPException(400, "Invalid CSV filename")
     return name
 
-def enforce_rate_limit(user_id: str, ip: str):
+def rate_limit(user_id: str, ip: str):
     now = time.time()
     key = (user_id, ip)
-    timestamps = _rate_limit.get(key, [])
-    timestamps = [t for t in timestamps if now - t < RATE_LIMIT_WINDOW]
-
-    if len(timestamps) >= RATE_LIMIT_MAX:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
-
-    timestamps.append(now)
-    _rate_limit[key] = timestamps
+    hits = [t for t in _rate_limit.get(key, []) if now - t < RATE_WINDOW]
+    if len(hits) >= RATE_MAX:
+        raise HTTPException(429, "Rate limit exceeded")
+    hits.append(now)
+    _rate_limit[key] = hits
 
 # -----------------------------------
 # Health
@@ -115,85 +104,45 @@ def health():
     return {"status": "ok"}
 
 # -----------------------------------
-# SIGNED UPLOAD ENDPOINT
+# Signed upload
 # -----------------------------------
 @app.post("/sign-upload")
 def sign_upload(req: SignRequest, request: Request):
     with tracer.start_as_current_span("sign_upload"):
-        request_id = str(uuid.uuid4())
-        client_ip = request.client.host if request.client else "unknown"
+        ip = request.client.host if request.client else "unknown"
+        rate_limit(req.user_id, ip)
 
-        # Rate limit
-        enforce_rate_limit(req.user_id, client_ip)
+        filename = sanitize(req.filename)
+        path = f"{SUPABASE_BUCKET}/{req.user_id}/{filename}"
 
-        # Sanitize filename
-        filename = sanitize_filename(req.filename)
+        sign_url = f"{SUPABASE_URL}/storage/v1/object/upload/sign/{path}"
 
-        # Per-user path enforcement
-        object_path = f"{SUPABASE_BUCKET}/{req.user_id}/{filename}"
-
-        sign_url = (
-            f"{SUPABASE_URL}/storage/v1/object/upload/sign/{object_path}"
+        resp = requests.post(
+            sign_url,
+            json={"expiresIn": req.expires_in},
+            headers=headers(),
+            timeout=5,
         )
 
-        payload = {"expiresIn": req.expires_in}
-
-        try:
-            resp = requests.post(
-                sign_url,
-                json=payload,
-                headers=build_headers(),
-                timeout=5,
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail={"request_id": request_id, "error": str(e)},
-            )
-
         if resp.status_code != 200:
-            raise HTTPException(
-                status_code=500,
-                detail={"request_id": request_id, "error": resp.text},
-            )
+            raise HTTPException(500, resp.text)
 
-        data = resp.json()
-        signed_path = data.get("signedURL") or data.get("url")
-
-        if not signed_path:
-            raise HTTPException(
-                status_code=500,
-                detail={"request_id": request_id, "error": "Invalid signing response"},
-            )
-
-        upload_url = f"{SUPABASE_URL}/storage/v1{signed_path}"
-
-        if "/object/upload/sign/" not in upload_url:
-            raise HTTPException(
-                status_code=500,
-                detail={"request_id": request_id, "error": "Invalid upload URL"},
-            )
+        signed = resp.json().get("signedURL") or resp.json().get("url")
+        if not signed:
+            raise HTTPException(500, "Invalid signing response")
 
         return {
-            "request_id": request_id,
-            "upload_url": upload_url,
-            "path": object_path,
-            "expires_in": req.expires_in,
+            "upload_url": f"{SUPABASE_URL}/storage/v1{signed}",
+            "path": path,
         }
 
 # -----------------------------------
-# ✅ FINAL /analyze ENDPOINT (LOCKED)
+# ✅ FINAL /analyze ENDPOINT (ERROR-FREE)
 # -----------------------------------
 @app.get("/analyze")
 def analyze(path: str, user_id: str):
     """
-    Full AI analysis pipeline:
-    - Fetch CSV from Supabase
-    - Run anomaly detection
-    - Generate embeddings
-    - Produce AI explanation
-    - Persist lineage & audit
-    - Emit OpenTelemetry spans
+    Locked AI analysis pipeline.
     """
     with tracer.start_as_current_span("analyze"):
         df = fetch_csv(path)
