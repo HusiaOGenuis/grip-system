@@ -1,3 +1,8 @@
+from dotenv import load_dotenv
+load_dotenv()
+
+from preflight import run_preflight
+run_preflight()
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
@@ -8,7 +13,8 @@ print("RUNNING CORRECT MAIN.PY")
 print("=== THIS IS THE ACTIVE MAIN.PY ===")
 
 app = FastAPI()
-
+from dotenv import load_dotenv
+load_dotenv()
 # ---------- ENV VALIDATION ----------
 REQUIRED_ENV = [
     "SUPABASE_URL",
