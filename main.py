@@ -40,6 +40,7 @@ class AnalyzeRequest(BaseModel):
 
 @app.post("/sign-upload")
 def sign_upload(req: SignUploadRequest):
+
     object_path = f"{SUPABASE_BUCKET}/{req.filename}"
 
     url = f"{SUPABASE_URL}/storage/v1/object/sign/{object_path}"
@@ -49,7 +50,9 @@ def sign_upload(req: SignUploadRequest):
         "Content-Type": "application/json",
     }
 
-    payload = {"expiresIn": req.expires_in}
+    payload = {
+        "expiresIn": req.expires_in
+    }
 
     resp = requests.post(url, json=payload, headers=headers)
 
@@ -61,20 +64,13 @@ def sign_upload(req: SignUploadRequest):
 
     data = resp.json()
 
-    url = f"{SUPABASE_URL}/storage/v1/object/upload/sign/{object_path}"
+    upload_url = f"{SUPABASE_URL}/storage/v1{data['signedURL']}"
 
     return {
         "upload_url": upload_url,
         "path": object_path,
         "expires_in": req.expires_in
-    }data = resp.json()
-
-    return {
-        "upload_url": f"{SUPABASE_URL}{data['signedURL']}",
-        "path": object_path,
-        "expires_in": req.expires_in
     }
-
 # =========================
 # ANALYZE FILE (AI STEP)
 # =========================
