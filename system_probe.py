@@ -2,19 +2,19 @@ import requests
 
 BASE = "http://127.0.0.1:8000"
 
-print("\n🔍 SYSTEM PROBE\n")
-
-endpoints = [
-    "/health",
-    "/files",
-]
-
-for ep in endpoints:
+def test(endpoint):
+    print(f"\n🔍 Testing {endpoint}")
     try:
-        r = requests.get(BASE + ep)
-        print(f"{ep} -> {r.status_code}")
-        print(r.text[:200], "\n")
+        r = requests.get(BASE + endpoint)
+        print("Status:", r.status_code)
+        print("Response:", r.text[:200])
     except Exception as e:
-        print(f"{ep} FAILED -> {e}")
+        print("❌ Failed:", e)
 
-print("DONE\n")
+print("\n🧪 LOCAL PROBE STARTED\n")
+
+test("/")
+test("/health")
+test("/reports")
+
+print("\n✅ PROBE COMPLETE\n")
