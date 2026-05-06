@@ -22,7 +22,10 @@ HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Content-Type": "application/json",
 }
-
+def generate_real_embedding(text: str) -> list[float]:
+    # Replace with OpenAI / Azure / local model later
+    # Placeholder example shape only
+    return [0.0] * 1536
 
 # -------------------------
 # Storage fetch
