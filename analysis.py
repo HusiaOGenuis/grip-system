@@ -33,12 +33,48 @@ def fetch_csv(object_path: str) -> pd.DataFrame:
 
 
 # -------------------------
-# HASH DATASET
+# HASH
 # -------------------------
 def dataset_hash(df: pd.DataFrame) -> str:
     return hashlib.sha256(
         pd.util.hash_pandas_object(df, index=True).values
     ).hexdigest()
+
+
+# -------------------------
+# COLUMN PROFILING
+# -------------------------
+def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
+    profile = {}
+
+    for col in df.columns:
+        s = df[col]
+
+        col_info = {
+            "dtype": str(s.dtype),
+            "null_ratio": float(s.isna().mean()),
+            "unique": int(s.nunique()),
+        }
+
+        if pd.api.types.is_numeric_dtype(s):
+            col_info.update({
+                "type": "numeric",
+                "mean": float(s.mean()) if not s.dropna().empty else None,
+                "std": float(s.std()) if not s.dropna().empty else None,
+                "min": float(s.min()) if not s.dropna().empty else None,
+                "max": float(s.max()) if not s.dropna().empty else None,
+                "skew": float(s.skew()) if not s.dropna().empty else None,
+            })
+
+        elif pd.api.types.is_datetime64_any_dtype(s):
+            col_info["type"] = "datetime"
+
+        else:
+            col_info["type"] = "categorical"
+
+        profile[col] = col_info
+
+    return profile
 
 
 # -------------------------
@@ -70,13 +106,60 @@ def detect_anomalies(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 # -------------------------
+# CORRELATION DETECTION
+# -------------------------
+def detect_correlations(df: pd.DataFrame) -> Dict[str, float]:
+    numeric = df.select_dtypes(include=[np.number])
+
+    if numeric.shape[1] < 2:
+        return {}
+
+    corr = numeric.corr()
+    pairs = {}
+
+    for i in corr.columns:
+        for j in corr.columns:
+            if i >= j:
+                continue
+
+            val = corr.loc[i, j]
+
+            if abs(val) > 0.7:
+                key = f"{i} ↔ {j}"
+                pairs[key] = float(val)
+
+    return pairs
+
+
+# -------------------------
 # EXPLANATION ENGINE
 # -------------------------
-def explain(df: pd.DataFrame, anomalies: Dict[str, Any]) -> str:
+def explain(df, profile, anomalies, correlations) -> str:
+    parts = []
+
+    parts.append(f"Dataset has {len(df)} rows and {len(df.columns)} columns.")
+
+    # anomalies
     if anomalies:
         cols = list(anomalies.keys())
-        return f"Dataset has {len(df)} rows with anomalies in columns: {cols}."
-    return f"Dataset has {len(df)} rows with no significant anomalies."
+        parts.append(f"Anomalies detected in columns: {cols}.")
+    else:
+        parts.append("No significant anomalies detected.")
+
+    # skew detection
+    skewed = [
+        col for col, info in profile.items()
+        if info.get("type") == "numeric" and info.get("skew") and abs(info["skew"]) > 1
+    ]
+    if skewed:
+        parts.append(f"Skewed distributions observed in: {skewed}.")
+
+    # correlations
+    if correlations:
+        top = list(correlations.keys())[:3]
+        parts.append(f"Strong correlations found: {top}.")
+
+    return " ".join(parts)
 
 
 # -------------------------
@@ -92,12 +175,17 @@ def analyze_dataframe(
     request_id = str(uuid.uuid4())
 
     h = dataset_hash(df)
+
+    profile = profile_columns(df)
     anomalies = detect_anomalies(df)
-    explanation = explain(df, anomalies)
+    correlations = detect_correlations(df)
+    explanation = explain(df, profile, anomalies, correlations)
 
     return {
         "request_id": request_id,
         "dataset_hash": h,
+        "profile": profile,
         "anomalies": anomalies,
+        "correlations": correlations,
         "explanation": explanation,
     }
