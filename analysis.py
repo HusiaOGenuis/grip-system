@@ -1,4 +1,3 @@
-print("🔥 NEW ANALYSIS MODULE LOADED")
 import os
 import uuid
 import hashlib
@@ -57,18 +56,12 @@ def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
     profile = {}
     for col in df.columns:
         s = df[col]
-        info = {
+        profile[col] = {
             "dtype": str(s.dtype),
             "null_ratio": float(s.isna().mean()),
             "unique": int(s.nunique()),
+            "type": "numeric" if pd.api.types.is_numeric_dtype(s) else "categorical"
         }
-
-        if pd.api.types.is_numeric_dtype(s):
-            info["type"] = "numeric"
-        else:
-            info["type"] = "categorical"
-
-        profile[col] = info
     return profile
 
 
@@ -77,10 +70,8 @@ def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
 # -------------------------
 def data_quality_report(df: pd.DataFrame) -> Dict[str, Any]:
     issues = {}
-
     for col in df.columns:
         null_ratio = df[col].isna().mean()
-
         if null_ratio > 0.3:
             issues[col] = {
                 "type": "missing_values",
@@ -105,99 +96,110 @@ def data_quality_report(df: pd.DataFrame) -> Dict[str, Any]:
 # -------------------------
 def infer_roles(df: pd.DataFrame) -> Dict[str, str]:
     roles = {}
-
     for col in df.columns:
         name = col.lower()
-
         if "id" in name:
             roles[col] = "identifier"
-        elif "date" in name or "time" in name:
+        elif "date" in name:
             roles[col] = "datetime"
-        elif "amount" in name or "price" in name or "total" in name:
+        elif "amount" in name or "price" in name:
             roles[col] = "financial"
         elif "status" in name:
             roles[col] = "status"
         else:
             roles[col] = "category"
-
     return roles
 
 
 # -------------------------
 # SEMANTIC DIAGNOSIS
 # -------------------------
-def semantic_diagnosis(df: pd.DataFrame, profile, quality, roles) -> Dict[str, Any]:
+def semantic_diagnosis(df, profile, quality, roles):
     findings = []
 
     for col in df.columns:
         role = roles[col]
         p = profile[col]
-        q = quality["column_issues"].get(col)
 
-        # Financial column check
         if role == "financial" and p["type"] != "numeric":
             findings.append({
                 "column": col,
-                "issue": "Expected numeric financial values but found non-numeric data",
+                "issue": "Financial column is not numeric",
                 "severity": "high",
-                "suggestion": "Clean currency symbols and enforce numeric format"
+                "suggestion": "Convert to numeric and clean values"
             })
 
-        # Date column check
+        if role == "identifier" and p["unique"] < len(df):
+            findings.append({
+                "column": col,
+                "issue": "Identifier contains duplicates",
+                "severity": "high",
+                "suggestion": "Ensure unique identifiers"
+            })
+
         if role == "datetime":
             parsed = pd.to_datetime(df[col], errors="coerce")
-            ratio = parsed.notna().mean()
-
-            if ratio < 0.8:
+            if parsed.notna().mean() < 0.8:
                 findings.append({
                     "column": col,
-                    "issue": "Column appears to be date but is not consistently parseable",
+                    "issue": "Date column not consistently parseable",
                     "severity": "medium",
-                    "suggestion": "Standardize date format (e.g. YYYY-MM-DD)"
+                    "suggestion": "Standardize date format"
                 })
 
-        # Identifier check
-        if role == "identifier":
-            if p["unique"] < len(df):
-                findings.append({
-                    "column": col,
-                    "issue": "Identifier column contains duplicates",
-                    "severity": "high",
-                    "suggestion": "Ensure unique keys per record"
-                })
-
-        # Missing values
-        if q:
+        if col in quality["column_issues"]:
             findings.append({
                 "column": col,
                 "issue": "High missing values",
                 "severity": "medium",
-                "suggestion": "Investigate data collection or fill strategy"
+                "suggestion": "Investigate or impute missing data"
             })
 
+    return findings
+
+
+# -------------------------
+# DECISION ENGINE
+# -------------------------
+def decision_engine(findings, quality):
+    high = [f for f in findings if f["severity"] == "high"]
+    medium = [f for f in findings if f["severity"] == "medium"]
+
+    health = quality["summary"]["health_score"]
+
+    # Verdict logic
+    if high or health < 0.5:
+        verdict = "UNRELIABLE"
+        risk = "HIGH"
+    elif medium:
+        verdict = "WARNING"
+        risk = "MEDIUM"
+    else:
+        verdict = "RELIABLE"
+        risk = "LOW"
+
+    # Priority actions (deduplicated)
+    actions = []
+    for f in high + medium:
+        if f["suggestion"] not in actions:
+            actions.append(f["suggestion"])
+
     return {
-        "roles": roles,
-        "findings": findings
+        "verdict": verdict,
+        "risk_level": risk,
+        "priority_actions": actions[:5]
     }
 
 
 # -------------------------
-# EXPLANATION
+# EXPLAIN
 # -------------------------
-def explain(df, quality, diagnosis):
-    parts = []
-
-    parts.append(f"Dataset has {len(df)} rows and {len(df.columns)} columns.")
-
-    if quality["summary"]["columns_with_issues"] > 0:
-        parts.append(
-            f"{quality['summary']['columns_with_issues']} columns show data quality concerns."
-        )
-
-    if diagnosis["findings"]:
-        parts.append(f"{len(diagnosis['findings'])} semantic issues detected.")
-
-    return " ".join(parts)
+def explain(df, decision):
+    return (
+        f"Dataset evaluated as {decision['verdict']} "
+        f"with {decision['risk_level']} risk. "
+        f"{len(decision['priority_actions'])} priority actions recommended."
+    )
 
 
 # -------------------------
@@ -218,15 +220,17 @@ def analyze_dataframe(
     profile = profile_columns(df)
     quality = data_quality_report(df)
     roles = infer_roles(df)
-    diagnosis = semantic_diagnosis(df, profile, quality, roles)
+    findings = semantic_diagnosis(df, profile, quality, roles)
+    decision = decision_engine(findings, quality)
 
-    explanation = explain(df, quality, diagnosis)
+    explanation = explain(df, decision)
 
     return {
         "request_id": request_id,
         "dataset_hash": h,
         "profile": profile,
         "data_quality": quality,
-        "semantic": diagnosis,
+        "semantic_findings": findings,
+        "decision": decision,
         "explanation": explanation,
     }
