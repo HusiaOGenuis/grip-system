@@ -1,3 +1,4 @@
+from analysis import apply_auto_fixes
 import numpy as np
 # main.py
 
@@ -283,6 +284,43 @@ def compare(path1: str, path2: str, user_id: str):
                 "hash_1": h1,
                 "hash_2": h2
             }
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+@app.get("/fix")
+def fix_dataset(path: str, user_id: str):
+    try:
+        df = fetch_csv(path)
+
+        # BEFORE
+        original_analysis = analyze_dataframe(
+            df,
+            user_id=user_id,
+            object_path=path
+        )
+
+        # APPLY FIXES
+        fixed_df = apply_auto_fixes(df)
+
+        # AFTER
+        fixed_analysis = analyze_dataframe(
+            fixed_df,
+            user_id=user_id,
+            object_path=path
+        )
+
+        # IMPACT
+        impact = impact_analysis(original_analysis, fixed_analysis)
+
+        return {
+            "status": "success",
+            "before": original_analysis["decision"],
+            "after": fixed_analysis["decision"],
+            "impact": impact
         }
 
     except Exception as e:

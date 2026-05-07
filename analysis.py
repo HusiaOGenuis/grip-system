@@ -286,3 +286,43 @@ def impact_analysis(old_analysis: dict, new_analysis: dict) -> dict:
         "previous_verdict": old_decision.get("verdict"),
         "current_verdict": new_decision.get("verdict")
     }
+def apply_auto_fixes(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    for col in df.columns:
+        name = col.lower()
+
+        # -------------------------
+        # FIX: Financial columns
+        # -------------------------
+        if "amount" in name or "price" in name:
+            df[col] = (
+                df[col]
+                .astype(str)
+                .str.replace(r"[^\d\.\-]", "", regex=True)
+            )
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # -------------------------
+        # FIX: Date columns
+        # -------------------------
+        if "date" in name:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+
+        # -------------------------
+        # FIX: Missing values
+        # -------------------------
+        if df[col].isna().mean() > 0:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].fillna(df[col].median())
+            else:
+                df[col] = df[col].fillna("UNKNOWN")
+
+    # -------------------------
+    # FIX: Duplicate IDs
+    # -------------------------
+    for col in df.columns:
+        if "id" in col.lower():
+            df = df.drop_duplicates(subset=[col])
+
+    return df
