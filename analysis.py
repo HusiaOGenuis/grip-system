@@ -200,7 +200,16 @@ def explain(df, decision):
         f"with {decision['risk_level']} risk. "
         f"{len(decision['priority_actions'])} priority actions recommended."
     )
+def explain_unreliability(decision, findings):
+    if decision["verdict"] != "UNRELIABLE":
+        return "Dataset is not classified as unreliable."
 
+    reasons = [f["issue"] for f in findings if f["severity"] == "high"]
+
+    if not reasons:
+        reasons = [f["issue"] for f in findings]
+
+    return "Dataset is unreliable due to: " + "; ".join(reasons)
 
 # -------------------------
 # MAIN
