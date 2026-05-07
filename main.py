@@ -1,3 +1,4 @@
+import numpy as np
 # main.py
 
 from dotenv import load_dotenv
