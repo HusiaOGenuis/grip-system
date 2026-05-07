@@ -38,11 +38,11 @@ from typing import Dict, Tuple
 # -----------------------------------
 # Analysis imports (MATCHES analysis.py)
 # -----------------------------------
-#from analysis import fetch_csv, analyze_dataframe
+from analysis import fetch_csv, analyze_dataframe, dataset_hash
 import analysis
 print("🔥 USING ANALYSIS FILE:", analysis.__file__)
 
-from analysis import fetch_csv, analyze_dataframe
+from analysis import fetch_csv, analyze_dataframe, dataset_hash
 
 # -----------------------------------
 # App init
