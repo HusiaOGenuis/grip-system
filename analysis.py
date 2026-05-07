@@ -167,7 +167,6 @@ def decision_engine(findings, quality):
 
     health = quality["summary"]["health_score"]
 
-    # Verdict logic
     if high or health < 0.5:
         verdict = "UNRELIABLE"
         risk = "HIGH"
@@ -178,7 +177,6 @@ def decision_engine(findings, quality):
         verdict = "RELIABLE"
         risk = "LOW"
 
-    # Priority actions (deduplicated)
     actions = []
     for f in high + medium:
         if f["suggestion"] not in actions:
@@ -192,6 +190,28 @@ def decision_engine(findings, quality):
 
 
 # -------------------------
+# WHY + FIX PLAN
+# -------------------------
+def explain_unreliability(decision, findings):
+    if decision["verdict"] != "UNRELIABLE":
+        return "Dataset is not classified as unreliable."
+
+    reasons = [f["issue"] for f in findings if f["severity"] == "high"]
+    if not reasons:
+        reasons = [f["issue"] for f in findings]
+
+    return "Dataset is unreliable due to: " + "; ".join(reasons)
+
+
+def auto_fix_plan(findings):
+    fixes = []
+    for f in findings:
+        if f["suggestion"] not in fixes:
+            fixes.append(f["suggestion"])
+    return fixes
+
+
+# -------------------------
 # EXPLAIN
 # -------------------------
 def explain(df, decision):
@@ -200,19 +220,10 @@ def explain(df, decision):
         f"with {decision['risk_level']} risk. "
         f"{len(decision['priority_actions'])} priority actions recommended."
     )
-def explain_unreliability(decision, findings):
-    if decision["verdict"] != "UNRELIABLE":
-        return "Dataset is not classified as unreliable."
 
-    reasons = [f["issue"] for f in findings if f["severity"] == "high"]
-
-    if not reasons:
-        reasons = [f["issue"] for f in findings]
-
-    return "Dataset is unreliable due to: " + "; ".join(reasons)
 
 # -------------------------
-# MAIN
+# MAIN (CORRECTLY SCOPED)
 # -------------------------
 def analyze_dataframe(
     df: pd.DataFrame,
@@ -232,6 +243,9 @@ def analyze_dataframe(
     findings = semantic_diagnosis(df, profile, quality, roles)
     decision = decision_engine(findings, quality)
 
+    why = explain_unreliability(decision, findings)
+    fix_plan = auto_fix_plan(findings)
+
     explanation = explain(df, decision)
 
     return {
@@ -241,5 +255,7 @@ def analyze_dataframe(
         "data_quality": quality,
         "semantic_findings": findings,
         "decision": decision,
+        "why_unreliable": why,
+        "auto_fix_plan": fix_plan,
         "explanation": explanation,
     }
