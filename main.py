@@ -186,3 +186,22 @@ def ask(question: str, user_id: str):
         "answer": answer,
         "sources": matches,
     }
+@app.get("/compare")
+def compare(path1: str, path2: str, user_id: str):
+    df1 = fetch_csv(path1)
+    df2 = fetch_csv(path2)
+
+    result = {
+        "dataset_1_rows": len(df1),
+        "dataset_2_rows": len(df2),
+        "row_difference": len(df1) - len(df2),
+        "columns_only_in_1": list(set(df1.columns) - set(df2.columns)),
+        "columns_only_in_2": list(set(df2.columns) - set(df1.columns)),
+        "common_columns": list(set(df1.columns) & set(df2.columns)),
+    }
+
+    return {
+        "status": "success",
+        "comparison": result
+    }
+   
