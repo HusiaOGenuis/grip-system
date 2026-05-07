@@ -259,3 +259,30 @@ def analyze_dataframe(
         "auto_fix_plan": fix_plan,
         "explanation": explanation,
     }
+def impact_analysis(old_analysis: dict, new_analysis: dict) -> dict:
+    old_decision = old_analysis.get("decision", {})
+    new_decision = new_analysis.get("decision", {})
+
+    old_quality = old_analysis.get("data_quality", {}).get("summary", {})
+    new_quality = new_analysis.get("data_quality", {}).get("summary", {})
+
+    old_score = old_quality.get("health_score", 0)
+    new_score = new_quality.get("health_score", 0)
+
+    delta = round(new_score - old_score, 3)
+
+    if delta > 0:
+        direction = "improved"
+    elif delta < 0:
+        direction = "degraded"
+    else:
+        direction = "unchanged"
+
+    return {
+        "previous_health": old_score,
+        "current_health": new_score,
+        "change": delta,
+        "direction": direction,
+        "previous_verdict": old_decision.get("verdict"),
+        "current_verdict": new_decision.get("verdict")
+    }

@@ -219,20 +219,14 @@ def compare(path1: str, path2: str, user_id: str):
         # Cell diff
         cell_changes = {}
         if df1c.shape == df2c.shape:
-            try:
-                diff_mask = (df1c != df2c)
-                for col in common_cols:
-                    changed = int(diff_mask[col].sum())
-                    if changed > 0:
-                        cell_changes[col] = changed
-            except Exception:
-                pass
+            diff_mask = (df1c != df2c)
+            for col in common_cols:
+                changed = int(diff_mask[col].sum())
+                if changed > 0:
+                    cell_changes[col] = changed
 
-        # -------------------------
-        # DRIFT DETECTION
-        # -------------------------
+        # Drift
         drift = {}
-
         numeric_cols = df1c.select_dtypes(include=[np.number]).columns
 
         for col in numeric_cols:
@@ -252,6 +246,17 @@ def compare(path1: str, path2: str, user_id: str):
             except Exception:
                 continue
 
+        # -------------------------
+        # IMPACT ANALYSIS (SAFE)
+        # -------------------------
+        try:
+            analysis1 = analyze_dataframe(df1, user_id=user_id, object_path=path1)
+            analysis2 = analyze_dataframe(df2, user_id=user_id, object_path=path2)
+
+            impact = impact_analysis(analysis1, analysis2)
+        except Exception:
+            impact = {}
+
         return {
             "status": "success",
             "comparison": {
@@ -266,6 +271,7 @@ def compare(path1: str, path2: str, user_id: str):
                 "common_columns": common_cols,
                 "cell_changes": cell_changes,
                 "drift": drift,
+                "impact": impact,
                 "hash_1": h1,
                 "hash_2": h2
             }
