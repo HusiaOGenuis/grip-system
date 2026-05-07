@@ -1,3 +1,4 @@
+print("🔥 NEW ANALYSIS MODULE LOADED")
 import os
 import uuid
 import hashlib
@@ -28,7 +29,7 @@ def fetch_csv(object_path: str) -> pd.DataFrame:
 
 
 # -------------------------
-# TYPE NORMALIZATION (SAFE)
+# NORMALIZE
 # -------------------------
 def normalize_types(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
@@ -63,14 +64,7 @@ def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
         }
 
         if pd.api.types.is_numeric_dtype(s):
-            info.update({
-                "type": "numeric",
-                "mean": float(s.mean()) if not s.dropna().empty else None,
-                "std": float(s.std()) if not s.dropna().empty else None,
-                "min": float(s.min()) if not s.dropna().empty else None,
-                "max": float(s.max()) if not s.dropna().empty else None,
-                "skew": float(s.skew()) if not s.dropna().empty else None,
-            })
+            info["type"] = "numeric"
         else:
             info["type"] = "categorical"
 
@@ -79,55 +73,9 @@ def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 # -------------------------
-# MIXED TYPE DETECTION
+# DATA QUALITY
 # -------------------------
-def detect_mixed_types(df: pd.DataFrame) -> Dict[str, Any]:
-    issues = {}
-
-    for col in df.columns:
-        s = df[col]
-
-        if s.dtype == object:
-            numeric_attempt = pd.to_numeric(s, errors="coerce")
-            numeric_ratio = numeric_attempt.notna().mean()
-
-            if 0.1 < numeric_ratio < 0.9:
-                issues[col] = {
-                    "type": "mixed",
-                    "numeric_ratio": float(numeric_ratio),
-                    "note": "Column contains both numeric-like and text values"
-                }
-
-    return issues
-
-
-# -------------------------
-# DATE VALIDATION
-# -------------------------
-def detect_date_issues(df: pd.DataFrame) -> Dict[str, Any]:
-    issues = {}
-
-    for col in df.columns:
-        s = df[col]
-
-        if s.dtype == object:
-            parsed = pd.to_datetime(s, errors="coerce")
-            ratio = parsed.notna().mean()
-
-            if ratio > 0.5 and ratio < 1.0:
-                issues[col] = {
-                    "type": "partial_datetime",
-                    "parse_ratio": float(ratio),
-                    "note": "Some values look like dates but others do not"
-                }
-
-    return issues
-
-
-# -------------------------
-# MISSINGNESS
-# -------------------------
-def detect_missingness(df: pd.DataFrame) -> Dict[str, Any]:
+def data_quality_report(df: pd.DataFrame) -> Dict[str, Any]:
     issues = {}
 
     for col in df.columns:
@@ -136,123 +84,118 @@ def detect_missingness(df: pd.DataFrame) -> Dict[str, Any]:
         if null_ratio > 0.3:
             issues[col] = {
                 "type": "missing_values",
-                "null_ratio": float(null_ratio),
-                "note": "High proportion of missing values"
+                "null_ratio": float(null_ratio)
             }
 
-    return issues
-
-
-# -------------------------
-# DATA QUALITY ENGINE
-# -------------------------
-def data_quality_report(df: pd.DataFrame) -> Dict[str, Any]:
-    mixed = detect_mixed_types(df)
-    dates = detect_date_issues(df)
-    missing = detect_missingness(df)
-
-    column_issues = {}
-
-    for col in df.columns:
-        col_flags = []
-
-        if col in mixed:
-            col_flags.append(mixed[col])
-
-        if col in dates:
-            col_flags.append(dates[col])
-
-        if col in missing:
-            col_flags.append(missing[col])
-
-        if col_flags:
-            column_issues[col] = col_flags
-
-    total_cols = len(df.columns)
-    problematic = len(column_issues)
-
-    health_score = 1 - (problematic / total_cols if total_cols else 0)
+    total = len(df.columns)
+    bad = len(issues)
 
     return {
-        "column_issues": column_issues,
+        "column_issues": issues,
         "summary": {
-            "total_columns": total_cols,
-            "columns_with_issues": problematic,
-            "health_score": round(health_score, 3)
+            "total_columns": total,
+            "columns_with_issues": bad,
+            "health_score": round(1 - (bad / total if total else 0), 3)
         }
     }
 
 
 # -------------------------
-# ANOMALIES
+# ROLE INFERENCE
 # -------------------------
-def detect_anomalies(df: pd.DataFrame) -> Dict[str, Any]:
-    numeric = df.select_dtypes(include=[np.number])
-    anomalies = {}
+def infer_roles(df: pd.DataFrame) -> Dict[str, str]:
+    roles = {}
 
-    for col in numeric.columns:
-        s = numeric[col].dropna()
-        if s.empty:
-            continue
+    for col in df.columns:
+        name = col.lower()
 
-        std = s.std()
-        if std == 0:
-            continue
+        if "id" in name:
+            roles[col] = "identifier"
+        elif "date" in name or "time" in name:
+            roles[col] = "datetime"
+        elif "amount" in name or "price" in name or "total" in name:
+            roles[col] = "financial"
+        elif "status" in name:
+            roles[col] = "status"
+        else:
+            roles[col] = "category"
 
-        z = (s - s.mean()) / std
-        outliers = s[abs(z) > 3]
-
-        if not outliers.empty:
-            anomalies[col] = {
-                "count": int(len(outliers)),
-                "rows": outliers.index.tolist(),
-            }
-
-    return anomalies
+    return roles
 
 
 # -------------------------
-# CORRELATION
+# SEMANTIC DIAGNOSIS
 # -------------------------
-def detect_correlations(df: pd.DataFrame) -> Dict[str, float]:
-    numeric = df.select_dtypes(include=[np.number])
+def semantic_diagnosis(df: pd.DataFrame, profile, quality, roles) -> Dict[str, Any]:
+    findings = []
 
-    if numeric.shape[1] < 2:
-        return {}
+    for col in df.columns:
+        role = roles[col]
+        p = profile[col]
+        q = quality["column_issues"].get(col)
 
-    corr = numeric.corr()
-    pairs = {}
+        # Financial column check
+        if role == "financial" and p["type"] != "numeric":
+            findings.append({
+                "column": col,
+                "issue": "Expected numeric financial values but found non-numeric data",
+                "severity": "high",
+                "suggestion": "Clean currency symbols and enforce numeric format"
+            })
 
-    for i in corr.columns:
-        for j in corr.columns:
-            if i >= j:
-                continue
+        # Date column check
+        if role == "datetime":
+            parsed = pd.to_datetime(df[col], errors="coerce")
+            ratio = parsed.notna().mean()
 
-            val = corr.loc[i, j]
+            if ratio < 0.8:
+                findings.append({
+                    "column": col,
+                    "issue": "Column appears to be date but is not consistently parseable",
+                    "severity": "medium",
+                    "suggestion": "Standardize date format (e.g. YYYY-MM-DD)"
+                })
 
-            if abs(val) > 0.7:
-                pairs[f"{i} ↔ {j}"] = float(val)
+        # Identifier check
+        if role == "identifier":
+            if p["unique"] < len(df):
+                findings.append({
+                    "column": col,
+                    "issue": "Identifier column contains duplicates",
+                    "severity": "high",
+                    "suggestion": "Ensure unique keys per record"
+                })
 
-    return pairs
+        # Missing values
+        if q:
+            findings.append({
+                "column": col,
+                "issue": "High missing values",
+                "severity": "medium",
+                "suggestion": "Investigate data collection or fill strategy"
+            })
+
+    return {
+        "roles": roles,
+        "findings": findings
+    }
 
 
 # -------------------------
-# EXPLAIN
+# EXPLANATION
 # -------------------------
-def explain(df, profile, anomalies, correlations, quality):
+def explain(df, quality, diagnosis):
     parts = []
 
     parts.append(f"Dataset has {len(df)} rows and {len(df.columns)} columns.")
 
-    if anomalies:
-        parts.append(f"Anomalies in: {list(anomalies.keys())}.")
-    else:
-        parts.append("No significant anomalies detected.")
-
     if quality["summary"]["columns_with_issues"] > 0:
         parts.append(
-            f"{quality['summary']['columns_with_issues']} columns have data quality issues."
+            f"{quality['summary']['columns_with_issues']} columns show data quality concerns."
         )
+
+    if diagnosis["findings"]:
+        parts.append(f"{len(diagnosis['findings'])} semantic issues detected.")
 
     return " ".join(parts)
 
@@ -273,18 +216,17 @@ def analyze_dataframe(
     h = dataset_hash(df)
 
     profile = profile_columns(df)
-    anomalies = detect_anomalies(df)
-    correlations = detect_correlations(df)
     quality = data_quality_report(df)
+    roles = infer_roles(df)
+    diagnosis = semantic_diagnosis(df, profile, quality, roles)
 
-    explanation = explain(df, profile, anomalies, correlations, quality)
+    explanation = explain(df, quality, diagnosis)
 
     return {
         "request_id": request_id,
         "dataset_hash": h,
         "profile": profile,
         "data_quality": quality,
-        "anomalies": anomalies,
-        "correlations": correlations,
+        "semantic": diagnosis,
         "explanation": explanation,
     }
