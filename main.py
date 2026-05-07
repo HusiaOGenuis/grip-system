@@ -191,28 +191,21 @@ def compare(path1: str, path2: str, user_id: str):
     try:
         df1 = fetch_csv(path1)
         df2 = fetch_csv(path2)
-    except Exception as e:
-        return {"status": "error", "message": f"Fetch failed: {str(e)}"}
 
-    try:
         rows1, rows2 = len(df1), len(df2)
         cols1, cols2 = set(df1.columns), set(df2.columns)
 
         common_cols = sorted(list(cols1 & cols2))
 
-        df1c = df1[common_cols].copy().reset_index(drop=True)
-        df2c = df2[common_cols].copy().reset_index(drop=True)
+        df1c = df1[common_cols].copy().reset_index(drop=True).fillna("")
+        df2c = df2[common_cols].copy().reset_index(drop=True).fillna("")
 
-        # 🔹 Fill NaN safely
-        df1c = df1c.fillna("")
-        df2c = df2c.fillna("")
-
-        # 🔹 Hash
+        # Hash
         h1 = dataset_hash(df1c)
         h2 = dataset_hash(df2c)
         identical = h1 == h2
 
-        # 🔹 Row diff (safe)
+        # Row diff
         try:
             s1 = set(df1c.astype(str).agg("|".join, axis=1))
             s2 = set(df2c.astype(str).agg("|".join, axis=1))
@@ -222,17 +215,41 @@ def compare(path1: str, path2: str, user_id: str):
             rows_added = None
             rows_removed = None
 
-        # 🔹 Cell diff (safe)
+        # Cell diff
         cell_changes = {}
-        try:
-            if df1c.shape == df2c.shape:
+        if df1c.shape == df2c.shape:
+            try:
                 diff_mask = (df1c != df2c)
                 for col in common_cols:
                     changed = int(diff_mask[col].sum())
                     if changed > 0:
                         cell_changes[col] = changed
-        except Exception:
-            cell_changes = {}
+            except Exception:
+                pass
+
+        # -------------------------
+        # DRIFT DETECTION
+        # -------------------------
+        drift = {}
+
+        numeric_cols = df1c.select_dtypes(include=[np.number]).columns
+
+        for col in numeric_cols:
+            try:
+                mean1 = df1c[col].mean()
+                mean2 = df2c[col].mean()
+
+                if pd.notna(mean1) and pd.notna(mean2):
+                    diff = abs(mean1 - mean2)
+
+                    drift[col] = {
+                        "mean_1": float(mean1),
+                        "mean_2": float(mean2),
+                        "difference": float(diff),
+                        "drift": diff > (0.1 * abs(mean1)) if mean1 != 0 else diff > 0
+                    }
+            except Exception:
+                continue
 
         return {
             "status": "success",
@@ -247,6 +264,7 @@ def compare(path1: str, path2: str, user_id: str):
                 "columns_only_in_2": list(cols2 - cols1),
                 "common_columns": common_cols,
                 "cell_changes": cell_changes,
+                "drift": drift,
                 "hash_1": h1,
                 "hash_2": h2
             }
