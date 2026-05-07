@@ -43,7 +43,12 @@ from analysis import fetch_csv, analyze_dataframe, dataset_hash
 import analysis
 print("🔥 USING ANALYSIS FILE:", analysis.__file__)
 
-from analysis import fetch_csv, analyze_dataframe, dataset_hash
+from analysis import (
+    fetch_csv,
+    analyze_dataframe,
+    dataset_hash,
+    impact_analysis
+)
 
 # -----------------------------------
 # App init
@@ -189,6 +194,7 @@ def ask(question: str, user_id: str):
     }
 @app.get("/compare")
 def compare(path1: str, path2: str, user_id: str):
+
     try:
         df1 = fetch_csv(path1)
         df2 = fetch_csv(path2)
@@ -246,16 +252,18 @@ def compare(path1: str, path2: str, user_id: str):
             except Exception:
                 continue
 
-        # -------------------------
-        # IMPACT ANALYSIS (SAFE)
-        # -------------------------
+        # Impact analysis
         try:
             analysis1 = analyze_dataframe(df1, user_id=user_id, object_path=path1)
             analysis2 = analyze_dataframe(df2, user_id=user_id, object_path=path2)
 
             impact = impact_analysis(analysis1, analysis2)
-        except Exception:
-            impact = {}
+
+            if not impact:
+                impact = {"note": "Impact analysis returned empty result"}
+
+        except Exception as e:
+            impact = {"error": str(e)}
 
         return {
             "status": "success",
@@ -280,5 +288,5 @@ def compare(path1: str, path2: str, user_id: str):
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Comparison failed: {str(e)}"
+            "message": str(e)
         }
