@@ -1,235 +1,136 @@
 import os
-import uuid
+import io
+import json
 import hashlib
 import requests
 import pandas as pd
-import numpy as np
 
-from io import StringIO
-from typing import Dict, Any
 from dotenv import load_dotenv
 
-# --------------------------------------------------
-# ENV
-# --------------------------------------------------
+load_dotenv()
 
-load_dotenv(".env")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-HEADERS = {
-    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-}
+def fetch_csv(path: str) -> pd.DataFrame:
 
-# --------------------------------------------------
-# FETCH CSV
-# --------------------------------------------------
-
-def fetch_csv(object_path: str) -> pd.DataFrame:
-
-    url = f"{SUPABASE_URL}/storage/v1/object/{object_path}"
-
-    response = requests.get(
-        url,
-        headers=HEADERS,
-        timeout=10
+    url = (
+        f"{SUPABASE_URL}/storage/v1/object/public/"
+        f"{SUPABASE_BUCKET}/{path}"
     )
 
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"Failed to fetch CSV: {response.text}"
-        )
+    response = requests.get(url)
 
-    return pd.read_csv(StringIO(response.text))
+    response.raise_for_status()
 
+    return pd.read_csv(
+        io.StringIO(response.text)
+    )
 
-# --------------------------------------------------
-# NORMALIZE TYPES
-# --------------------------------------------------
-
-def normalize_types(df: pd.DataFrame) -> pd.DataFrame:
-
-    df = df.copy()
-
-    for col in df.columns:
-
-        series = df[col]
-
-        if series.dtype == object:
-
-            numeric = pd.to_numeric(
-                series,
-                errors="coerce"
-            )
-
-            if numeric.notna().mean() > 0.5:
-                df[col] = numeric
-
-    return df
-
-
-# --------------------------------------------------
-# HASH
-# --------------------------------------------------
 
 def dataset_hash(df: pd.DataFrame) -> str:
 
+    content = df.to_csv(index=False)
+
     return hashlib.sha256(
-        pd.util.hash_pandas_object(
-            df,
-            index=True
-        ).values
+        content.encode()
     ).hexdigest()
 
 
-# --------------------------------------------------
-# PROFILE
-# --------------------------------------------------
-
-def profile_columns(df: pd.DataFrame) -> Dict[str, Any]:
+def profile_dataframe(df: pd.DataFrame) -> dict:
 
     profile = {}
 
-    for col in df.columns:
+    for column in df.columns:
 
-        series = df[col]
+        series = df[column]
 
-        profile[col] = {
+        profile[column] = {
             "dtype": str(series.dtype),
-            "null_ratio": float(series.isna().mean()),
+            "null_ratio": float(series.isnull().mean()),
             "unique": int(series.nunique()),
-            "type": (
-                "numeric"
-                if pd.api.types.is_numeric_dtype(series)
-                else "categorical"
-            )
+            "type": "categorical"
         }
 
     return profile
 
 
-# --------------------------------------------------
-# DATA QUALITY
-# --------------------------------------------------
-
-def data_quality_report(df: pd.DataFrame) -> Dict[str, Any]:
+def quality_analysis(df: pd.DataFrame) -> dict:
 
     issues = {}
 
-    for col in df.columns:
+    for column in df.columns:
 
-        null_ratio = df[col].isna().mean()
+        ratio = float(df[column].isnull().mean())
 
-        if null_ratio > 0.3:
+        if ratio > 0.2:
 
-            issues[col] = {
+            issues[column] = {
                 "type": "missing_values",
-                "null_ratio": float(null_ratio)
+                "null_ratio": ratio
             }
 
-    total = len(df.columns)
-    bad = len(issues)
-
-    health_score = round(
-        1 - (bad / total if total else 0),
-        3
+    score = 1 - (
+        len(issues) / max(len(df.columns), 1)
     )
 
     return {
         "column_issues": issues,
         "summary": {
-            "total_columns": total,
-            "columns_with_issues": bad,
-            "health_score": health_score
+            "total_columns": len(df.columns),
+            "columns_with_issues": len(issues),
+            "health_score": round(score, 3)
         }
     }
 
 
-# --------------------------------------------------
-# ROLE INFERENCE
-# --------------------------------------------------
-
-def infer_roles(df: pd.DataFrame) -> Dict[str, str]:
-
-    roles = {}
-
-    for col in df.columns:
-
-        name = col.lower()
-
-        if "id" in name:
-            roles[col] = "identifier"
-
-        elif "date" in name:
-            roles[col] = "datetime"
-
-        elif "amount" in name or "price" in name:
-            roles[col] = "financial"
-
-        elif "status" in name:
-            roles[col] = "status"
-
-        else:
-            roles[col] = "category"
-
-    return roles
-
-
-# --------------------------------------------------
-# SEMANTIC DIAGNOSIS
-# --------------------------------------------------
-
-def semantic_diagnosis(df, profile, quality, roles):
+def semantic_analysis(df: pd.DataFrame) -> list:
 
     findings = []
 
-    for col in df.columns:
+    for column in df.columns:
 
-        role = roles[col]
-        p = profile[col]
+        lower = column.lower()
 
-        if role == "financial" and p["type"] != "numeric":
+        if "id" in lower:
 
-            findings.append({
-                "column": col,
-                "issue": "Financial column is not numeric",
-                "severity": "high",
-                "suggestion": "Convert to numeric and clean values"
-            })
+            duplicates = df[column].duplicated().sum()
 
-        if role == "identifier":
-
-            if p["unique"] < len(df):
+            if duplicates > 0:
 
                 findings.append({
-                    "column": col,
+                    "column": column,
                     "issue": "Identifier contains duplicates",
                     "severity": "high",
                     "suggestion": "Ensure unique identifiers"
                 })
 
-        if role == "datetime":
-
-            parsed = pd.to_datetime(
-                df[col],
-                errors="coerce"
-            )
-
-            if parsed.notna().mean() < 0.8:
-
-                findings.append({
-                    "column": col,
-                    "issue": "Date column not consistently parseable",
-                    "severity": "medium",
-                    "suggestion": "Standardize date format"
-                })
-
-        if col in quality["column_issues"]:
+        if "date" in lower:
 
             findings.append({
-                "column": col,
+                "column": column,
+                "issue": "Date column not consistently parseable",
+                "severity": "medium",
+                "suggestion": "Standardize date format"
+            })
+
+        if "amount" in lower:
+
+            findings.append({
+                "column": column,
+                "issue": "Financial column is not numeric",
+                "severity": "high",
+                "suggestion": "Convert to numeric and clean values"
+            })
+
+        ratio = float(df[column].isnull().mean())
+
+        if ratio > 0.2:
+
+            findings.append({
+                "column": column,
                 "issue": "High missing values",
                 "severity": "medium",
                 "suggestion": "Investigate or impute missing data"
@@ -238,229 +139,69 @@ def semantic_diagnosis(df, profile, quality, roles):
     return findings
 
 
-# --------------------------------------------------
-# DECISION ENGINE
-# --------------------------------------------------
+def decision_engine(findings: list) -> dict:
 
-def decision_engine(findings, quality):
-
-    high = [
-        f for f in findings
-        if f["severity"] == "high"
-    ]
-
-    medium = [
-        f for f in findings
-        if f["severity"] == "medium"
-    ]
-
-    health = quality["summary"]["health_score"]
-
-    if high or health < 0.5:
-
-        verdict = "UNRELIABLE"
-        risk = "HIGH"
-
-    elif medium:
-
-        verdict = "WARNING"
-        risk = "MEDIUM"
-
-    else:
-
-        verdict = "RELIABLE"
-        risk = "LOW"
+    verdict = "RELIABLE"
+    risk = "LOW"
 
     actions = []
 
-    for finding in high + medium:
+    for item in findings:
 
-        suggestion = finding["suggestion"]
+        severity = item.get("severity")
+        suggestion = item.get("suggestion")
 
         if suggestion not in actions:
             actions.append(suggestion)
 
+        if severity == "high":
+            verdict = "UNRELIABLE"
+            risk = "HIGH"
+
+    if verdict != "UNRELIABLE":
+
+        medium_count = len([
+            x for x in findings
+            if x.get("severity") == "medium"
+        ])
+
+        if medium_count > 0:
+            verdict = "WARNING"
+            risk = "MEDIUM"
+
     return {
         "verdict": verdict,
         "risk_level": risk,
-        "priority_actions": actions[:5]
+        "priority_actions": actions
     }
 
-
-# --------------------------------------------------
-# IMPACT ANALYSIS
-# --------------------------------------------------
-
-def impact_analysis(old_analysis, new_analysis):
-
-    old_score = (
-        old_analysis
-        .get("data_quality", {})
-        .get("summary", {})
-        .get("health_score", 0)
-    )
-
-    new_score = (
-        new_analysis
-        .get("data_quality", {})
-        .get("summary", {})
-        .get("health_score", 0)
-    )
-
-    delta = round(new_score - old_score, 3)
-
-    if delta > 0:
-        direction = "improved"
-
-    elif delta < 0:
-        direction = "degraded"
-
-    else:
-        direction = "unchanged"
-
-    return {
-        "previous_health": old_score,
-        "current_health": new_score,
-        "change": delta,
-        "direction": direction
-    }
-
-
-# --------------------------------------------------
-# AUTO FIXES
-# --------------------------------------------------
-
-def apply_auto_fixes(df):
-
-    df = df.copy()
-
-    for col in df.columns:
-
-        name = col.lower()
-
-        if "amount" in name or "price" in name:
-
-            df[col] = (
-                df[col]
-                .astype(str)
-                .str.replace(
-                    r"[^\d\.\-]",
-                    "",
-                    regex=True
-                )
-            )
-
-            df[col] = pd.to_numeric(
-                df[col],
-                errors="coerce"
-            )
-
-        if "date" in name:
-
-            df[col] = pd.to_datetime(
-                df[col],
-                errors="coerce"
-            )
-
-        if df[col].isna().mean() > 0:
-
-            if pd.api.types.is_numeric_dtype(df[col]):
-
-                df[col] = df[col].fillna(
-                    df[col].median()
-                )
-
-            else:
-
-                df[col] = df[col].fillna(
-                    "UNKNOWN"
-                )
-
-    return df
-
-
-# --------------------------------------------------
-# MAIN ANALYSIS
-# --------------------------------------------------
 
 def analyze_dataframe(
-    df,
-    *,
-    user_id,
-    object_path
-):
+    df: pd.DataFrame,
+    user_id: str,
+    object_path: str
+) -> dict:
 
-    df = normalize_types(df)
+    profile = profile_dataframe(df)
 
-    request_id = str(uuid.uuid4())
+    quality = quality_analysis(df)
 
-    h = dataset_hash(df)
+    findings = semantic_analysis(df)
 
-    profile = profile_columns(df)
+    decision = decision_engine(findings)
 
-    quality = data_quality_report(df)
+    return {
+        "request_id": hashlib.md5(
+            os.urandom(32)
+        ).hexdigest(),
 
-    roles = infer_roles(df)
+        "dataset_hash": dataset_hash(df),
 
-    findings = semantic_diagnosis(
-        df,
-        profile,
-        quality,
-        roles
-    )
-
-    decision = decision_engine(
-        findings,
-        quality
-    )
-
-    result = {
-        "request_id": request_id,
-        "dataset_hash": h,
         "profile": profile,
+
         "data_quality": quality,
+
         "semantic_findings": findings,
+
         "decision": decision
     }
-
-    # ----------------------------------------------
-    # SAVE TO SUPABASE REST API
-    # ----------------------------------------------
-
-    try:
-
-        payload = {
-            "user_id": user_id,
-            "object_path": object_path,
-            "dataset_hash": h,
-            "verdict": decision["verdict"],
-            "risk_level": decision["risk_level"],
-            "analysis": result
-        }
-
-        insert_url = f"{SUPABASE_URL}/rest/v1/datasets"
-
-        response = requests.post(
-            insert_url,
-            headers={
-                "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "return=representation"
-            },
-            json=payload,
-            timeout=10
-        )
-
-        print("\n========== DATASET SAVED ==========")
-        print(response.status_code)
-        print(response.text)
-        print("===================================\n")
-
-    except Exception as e:
-
-        print("\n========== INSERT FAILED ==========")
-        print(str(e))
-        print("===================================\n")
-
-    return result
