@@ -1,0 +1,9 @@
+# VERDICT TAXONOMY
+# Defines the only verdicts the system is allowed to emit
+
+version: 1.0
+verdicts:
+  - ALLOW
+  - DISALLOW
+  - CONDITIONAL
+  - ESCALATE

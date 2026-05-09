@@ -1,0 +1,17 @@
+# PAUSE CRITERIA
+# Defines conditions under which the system must halt decisioning
+
+version: 1.0
+
+criteria:
+  - id: MISSING_PROVENANCE
+    description: Input data lacks required provenance
+    action: PAUSE
+
+  - id: OUT_OF_SCOPE
+    description: Decision request exceeds declared system scope
+    action: PAUSE
+
+  - id: CONFLICTING_RULES
+    description: Multiple rules produce incompatible outcomes
+    action: PAUSE

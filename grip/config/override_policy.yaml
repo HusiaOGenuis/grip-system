@@ -1,0 +1,22 @@
+# OVERRIDE POLICY
+# Defines who may override which verdicts and under what constraints
+
+version: 1.0
+
+roles:
+  CREDIT_OFFICER:
+    may_override:
+      from: [DISALLOW, CONDITIONAL]
+      to: [ALLOW, CONDITIONAL]
+    scope: CASE_SPECIFIC
+
+  RISK_MANAGER:
+    may_override:
+      from: [ALLOW, CONDITIONAL, DISALLOW]
+      to: [ESCALATE]
+    scope: SYSTEMIC
+
+constraints:
+  require_liability_acceptance: true
+  forbid_self_service: true
+  forbid_same_verdict: true

@@ -1,0 +1,23 @@
+# CONFIDENCE-AWARE OVERRIDE POLICY
+# Restricts overrides based on decision confidence
+
+version: 1.0
+
+bands:
+  HIGH:
+    min_confidence: 0.8
+    allowed_roles: [RISK_MANAGER]
+    allowed_to: [ESCALATE]
+
+  MEDIUM:
+    min_confidence: 0.6
+    allowed_roles: [CREDIT_OFFICER, RISK_MANAGER]
+    allowed_to: [CONDITIONAL, ESCALATE]
+
+  LOW:
+    min_confidence: 0.0
+    allowed_roles: [CREDIT_OFFICER, RISK_MANAGER]
+    allowed_to: [ALLOW, CONDITIONAL, ESCALATE]
+
+constraints:
+  forbid_lowering_confidence_band: true
