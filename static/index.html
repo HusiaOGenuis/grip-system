@@ -2,20 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>GRIP – Supabase Sanity Check</title>
+  <title>GRIP – Dashboard</title>
 
-  <!-- ✅ Supabase v2 UMD build (global window.supabase) -->
-  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js
+  <!-- ✅ Load Supabase JS correctly (UMD build) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 
 <body>
-  <h1>SUPABASE LOAD TEST</h1>
+  <h1>GRIP Dashboard</h1>
   <p>If you see this text, HTML is rendering.</p>
 
+  <button id="login">Login</button>
+  <button id="run" disabled>Run Evaluation</button>
+
+  <pre id="output"></pre>
+
   <script>
-    console.log("supabase exists:", typeof supabase);
-    const { createClient } = supabase;
-    console.log("createClient exists:", typeof createClient);
+    // ✅ Verify Supabase is available
+    console.log("supabase exists:", typeof window.supabase);
+
+    // ✅ Initialize Supabase client
+    const SUPABASE_URL = "
+    const SUPABASE_URL = "https://txlddhgevpssgkqtosnz.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ
+";
+
+    const supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+
+    // ✅ Login via GitHub
+    document.getElementById("login").onclick = async () => {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "github"
+      });
+      if (error) alert(error.message);
+    };
+
+    // ✅ Enable run button when logged in
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        document.getElementById("run").disabled = false;
+      }
+    });
+
+    // ✅ Call Supabase Edge → GRIP
+    document.getElementById("run").onclick = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        alert("Not authenticated");
+        return;
+      }
+
+      const res = await fetch(
+        "https://YOUR_PROJECT_ID.supabase.com/functions/v1/api/decision",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ score: 82 })
+        }
+      );
+
+      document.getElementById("output").textContent = await res.text();
+    };
   </script>
 </body>
 </html>
