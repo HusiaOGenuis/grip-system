@@ -2,22 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>GRIP – Supabase Load Test</title>
-  
-  <!-- Load Supabase library -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>GRIP – Supabase Sanity Check</title>
+
+  <!-- Load Supabase JS FIRST -->
+  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2</script>
 </head>
+
 <body>
-  <h1>GRIP – Supabase Load Test</h1>
-  
+  <h1>SUPABASE LOAD TEST</h1>
+  <p>If you see this text, HTML is rendering.</p>
+
+  <!-- Use Supabase ONLY AFTER it is loaded -->
   <script>
-    // Initialize Supabase client
+    console.log("supabase exists:", typeof supabase);
     const { createClient } = supabase;
-    console.log("createClient type:", typeof createClient);
-    console.log("supabase type:", typeof supabase);
-    
-    // Example: Create client (requires SUPABASE_URL and SUPABASE_KEY)
-    // const client = createClient('YOUR_SUPABASE_URL', 'YOUR_SUPABASE_KEY');
+    console.log("createClient exists:", typeof createClient);
   </script>
 </body>
 </html>
