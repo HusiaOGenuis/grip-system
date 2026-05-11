@@ -4,10 +4,15 @@
   <meta charset="utf-8">
   <title>GRIP – Supabase Load Test</title>
 
- <script>
-  const { createClient } = supabase;
-  console.log("createClient type:", typeof createClient);
-</script>
+  <!-- Load Supabase JS library first -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+  <h1>SUPABASE LOAD TEST</h1>
+  <p>If you see this text, HTML is rendering.</p>
+
+  <script>
     console.log("supabase type:", typeof supabase);
   </script>
 </body>
