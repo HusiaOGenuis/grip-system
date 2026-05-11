@@ -1,129 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>GRIP Dashboard</title>
-    <style>
-        body {
-            font-family: Arial;
-            background: #0f172a;
-            color: #e2e8f0;
-            padding: 20px;
-        }
+  <meta charset="utf-8">
+  <title>GRIP – Supabase Load Test</title>
 
-        h1 {
-            color: #38bdf8;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th, td {
-            padding: 10px;
-            border-bottom: 1px solid #334155;
-            text-align: left;
-        }
-
-        th {
-            background: #1e293b;
-        }
-
-        tr:hover {
-            background: #1e293b;
-        }
-
-        .high {
-            color: #ef4444;
-        }
-
-        .low {
-            color: #22c55e;
-        }
-
-        button {
-            background: #38bdf8;
-            border: none;
-            padding: 10px 15px;
-            cursor: pointer;
-            color: black;
-            font-weight: bold;
-        }
-    </style>
+  <!-- Correct Supabase JS include -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body>
+  <h1>SUPABASE LOAD TEST</h1>
+  <p>If you see this text, HTML is rendering.</p>
 
-<h1>GRIP Risk Dashboard</h1>
-
-<button onclick="loadReports()">Load Reports</button>
-
-<table id="reports">
-    <thead>
-        <tr>
-            <th>File</th>
-            <th>Rows</th>
-            <th>Score</th>
-            <th>Risk</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-<script>
-const API = "https://gripsystem.onrender.com";
-
-async function loadReports() {
-    const res = await fetch(`${API}/reports`);
-    const data = await res.json();
-
-    console.log("API DATA:", data);
-
-    const tbody = document.querySelector("#reports tbody");
-    tbody.innerHTML = "";
-
-    data.forEach(report => {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td>${report.file_name}</td>
-            <td>${report.rows}</td>
-            <td>${report.score}</td>
-            <td class="${report.risk === 'HIGH' ? 'high' : 'low'}">
-                ${report.risk}
-            </td>
-        `;
-
-        tbody.appendChild(tr);
-    });
-}
-</script></table>
-<script>
-const API = "https://gripsystem.onrender.com";
-
-async function loadReports() {
-    const res = await fetch(`${API}/reports`);
-    const data = await res.json();
-
-    console.log("API DATA:", data); // DEBUG VISIBILITY
-
-    const tbody = document.querySelector("#reports tbody");
-    tbody.innerHTML = "";
-
-    data.forEach(report => {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td>${report.file_name}</td>
-            <td>${report.rows}</td>
-            <td>${report.score}</td>
-            <td class="${report.risk === 'HIGH' ? 'high' : 'low'}">
-                ${report.risk}
-            </td>
-        `;
-
-        tbody.appendChild(tr);
-    });
-}
-</script>
-
+  <script>
+    console.log("supabaseJs type:", typeof supabaseJs);
+  </script>
 </body>
 </html>
