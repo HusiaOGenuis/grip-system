@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>GRIP – Static Test</title>
+  <title>GRIP – Execute</title>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <h1>GRIP STATIC PAGE TEST</h1>
-  <p>If you can see this text, Render is serving HTML correctly.</p>
+  <h1>GRIP EXECUTION SURFACE</h1>
+  <p>JavaScript loading test.</p>
+
+  <script>
+    console.log("Supabase object:", typeof supabaseJs);
+  </script>
 </body>
 </html>
