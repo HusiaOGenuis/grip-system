@@ -3,46 +3,16 @@
 <head>
   <meta charset="utf-8">
   <title>GRIP – Supabase Load Test</title>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body>
   <h1>SUPABASE LOAD TEST</h1>
   <p>If you see this text, HTML is rendering.</p>
 
-  <div id="status" style="margin: 20px 0; font-weight: bold;">Loading Supabase...</div>
-
   <script>
-    // Wait until everything is loaded
-    window.addEventListener('load', () => {
-      const statusEl = document.getElementById('status');
-
-      console.log("supabaseJs type:", typeof supabase);
-
-      if (typeof supabase === 'undefined') {
-        statusEl.innerHTML = '❌ supabase is still undefined';
-        console.error("Supabase global not found");
-        return;
-      }
-
-      try {
-        // Correct way for the UMD/CDN build
-        const { createClient } = supabase;
-
-        statusEl.innerHTML = '✅ Supabase library loaded!<br>Creating client...';
-
-        const supabaseUrl = 'https://your-project-ref.supabase.co';
-        const supabaseAnonKey = 'your-anon-key-here';
-
-        const client = createClient(supabaseUrl, supabaseAnonKey);
-
-        console.log("✅ Supabase client created successfully", client);
-        statusEl.innerHTML += '<br>✅ Client created successfully!';
-
-      } catch (err) {
-        console.error(err);
-        statusEl.innerHTML = `❌ Error: ${err.message}`;
-      }
-    });
+    console.log("supabase type:", typeof supabase);
   </script>
 </body>
 </html>
