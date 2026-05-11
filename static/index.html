@@ -2,13 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>GRIP – Supabase Load Test</title> 
-
+  <title>GRIP – Supabase Load Test</title>
+  
+  <!-- Load Supabase library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>GRIP – Supabase Load Test</h1>
+  
   <script>
-  const { createClient } = supabase;
-  console.log("createClient type:", typeof createClient);
-</script>
+    // Initialize Supabase client
+    const { createClient } = supabase;
+    console.log("createClient type:", typeof createClient);
     console.log("supabase type:", typeof supabase);
+    
+    // Example: Create client (requires SUPABASE_URL and SUPABASE_KEY)
+    // const client = createClient('YOUR_SUPABASE_URL', 'YOUR_SUPABASE_KEY');
   </script>
 </body>
 </html>
