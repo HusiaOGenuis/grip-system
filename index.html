@@ -3,9 +3,63 @@
 <head>
   <meta charset="utf-8" />
   <title>GRIP – Execute</title>
+
+  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2
 </head>
 <body>
-  <h2>GRIP Execution Surface</h2>
-  <p>Status: Ready</p>
+  <h2>GRIP – Readiness Evaluation</h2>
+
+  <button id="login">Login</button>
+  <button id="run" disabled>Run Evaluation</button>
+
+  <pre id="output"></pre>
+
+  <script>
+    const SUPABASE_URL = "https://txlddhgevpssgkqtosnz.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ
+";
+
+    const supabase = supabaseJs.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+
+    document.getElementById("login").onclick = async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "github"
+      });
+
+      if (error) {
+        alert(error.message);
+      }
+    };
+
+    document.getElementById("run").onclick = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        alert("Not authenticated");
+        return;
+      }
+
+      const res = await fetch("/api/decision", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ score: 82 })
+      });
+
+      const text = await res.text();
+      document.getElementById("output").textContent = text;
+    };
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        document.getElementById("run").disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
