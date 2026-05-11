@@ -9,39 +9,37 @@
   <h1>SUPABASE LOAD TEST</h1>
   <p>If you see this text, HTML is rendering.</p>
 
-  <div id="status">Loading Supabase...</div>
+  <div id="status" style="margin: 20px 0; font-weight: bold;">Loading Supabase...</div>
 
   <script>
-    // Wait for the script to load
-    window.addEventListener('load', async () => {
+    // Wait until everything is loaded
+    window.addEventListener('load', () => {
       const statusEl = document.getElementById('status');
 
+      console.log("supabaseJs type:", typeof supabase);
+
+      if (typeof supabase === 'undefined') {
+        statusEl.innerHTML = '❌ supabase is still undefined';
+        console.error("Supabase global not found");
+        return;
+      }
+
       try {
-        // Check if the library loaded
-        if (typeof supabase === 'undefined') {
-          statusEl.innerHTML = '❌ Supabase library failed to load';
-          console.error("supabase is undefined");
-          return;
-        }
+        // Correct way for the UMD/CDN build
+        const { createClient } = supabase;
 
-        console.log("✅ Supabase library loaded successfully");
-        console.log("supabase type:", typeof supabase);
+        statusEl.innerHTML = '✅ Supabase library loaded!<br>Creating client...';
 
-        // Create the client (replace with your actual values)
         const supabaseUrl = 'https://your-project-ref.supabase.co';
-        const supabaseKey = 'your-anon-key';
+        const supabaseAnonKey = 'your-anon-key-here';
 
-        const client = supabase.createClient(supabaseUrl, supabaseKey);
+        const client = createClient(supabaseUrl, supabaseAnonKey);
 
-        console.log("✅ Supabase client created successfully");
-        statusEl.innerHTML = '✅ Supabase client initialized successfully';
-
-        // Optional: Test a simple query (uncomment when you have real credentials)
-        // const { data, error } = await client.from('your_table').select('*').limit(1);
-        // console.log("Test query:", { data, error });
+        console.log("✅ Supabase client created successfully", client);
+        statusEl.innerHTML += '<br>✅ Client created successfully!';
 
       } catch (err) {
-        console.error("Error initializing Supabase:", err);
+        console.error(err);
         statusEl.innerHTML = `❌ Error: ${err.message}`;
       }
     });
