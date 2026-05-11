@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-  <!-- ✅ Correct Supabase UMD script (THIS MUST BE A SCRIPT TAG) -->
+  <!-- ✅ Correct Supabase UMD build -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 
@@ -18,20 +18,19 @@
   <pre id="output"></pre>
 
   <script>
-    // ✅ PROOF: Supabase must exist
     console.log("supabase exists:", typeof window.supabase);
 
-    // ✅ REPLACE THESE WITH YOUR REAL VALUES (keep quotes)
+    // ✅ USE ONE CORRECT PROJECT REF (copy from Supabase dashboard)
     const SUPABASE_URL = "https://txldqhgevpssgkqtosnz.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ
+      ";
 
-    // ✅ Initialize Supabase client
     const supabaseClient = window.supabase.createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY
     );
 
-    // ✅ Login via GitHub OAuth
+    // ✅ GitHub OAuth login
     document.getElementById("login").onclick = async () => {
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: "github"
@@ -39,7 +38,7 @@
       if (error) alert(error.message);
     };
 
-    // ✅ Enable run button when logged in
+    // ✅ Enable run button after login
     supabaseClient.auth.onAuthStateChange((_event, session) => {
       if (session) {
         document.getElementById("run").disabled = false;
@@ -55,7 +54,7 @@
       }
 
       const res = await fetch(
-        "https://YOUR_PROJECT_ID.supabase.com/functions/v1/api/decision",
+        "https://txldqhgevpssgkqtosnz.supabase.com/functions/v1/api/decision",
         {
           method: "POST",
           headers: {
