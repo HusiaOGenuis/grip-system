@@ -30,8 +30,11 @@
 
     document.getElementById("login").onclick = async () => {
       const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: "github"
-      });
+      provider: "github",
+      options: {
+      redirectTo: "https://grip-execute.onrender.com"
+    }
+    });
       if (error) alert(error.message);
     };
 
