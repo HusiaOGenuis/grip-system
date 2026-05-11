@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-  <!-- ✅ Load Supabase JS correctly -->
+  <!-- ✅ Load Supabase JS (UMD build exposes window.supabase) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 
@@ -21,11 +21,11 @@
     // ✅ Sanity check
     console.log("supabase exists:", typeof window.supabase);
 
-    // ✅ Initialize Supabase client
-    
+    // ✅ REPLACE THESE WITH YOUR REAL VALUES (keep quotes)
     const SUPABASE_URL = "https://txlddhgevpssgkqtosnz.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ
      ";
+    // ✅ Initialize Supabase client
     const supabaseClient = window.supabase.createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY
@@ -39,7 +39,7 @@
       if (error) alert(error.message);
     };
 
-    // ✅ Enable run button when logged in
+    // ✅ Enable run button once authenticated
     supabaseClient.auth.onAuthStateChange((_event, session) => {
       if (session) {
         document.getElementById("run").disabled = false;
