@@ -4,15 +4,14 @@
   <meta charset="utf-8">
   <title>GRIP – Supabase Sanity Check</title>
 
-  <!-- Load Supabase JS FIRST -->
-  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2</script>
+  <!-- Load Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
   <h1>SUPABASE LOAD TEST</h1>
   <p>If you see this text, HTML is rendering.</p>
 
-  <!-- Use Supabase ONLY AFTER it is loaded -->
   <script>
     console.log("supabase exists:", typeof supabase);
     const { createClient } = supabase;
