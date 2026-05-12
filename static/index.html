@@ -51,17 +51,16 @@
         return;
       }
 
-      const res = await fetch(
-        "https://txldqhgevpssgkqtosnz.supabase.com/functions/v1/api/decision",
-        {
+      const decisionUrl = `${EDGE_BASE_URL}/functions/v1/api/decision`;
+
+        const res = await fetch(decisionUrl, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${session.access_token}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({ score: 82 })
-        }
-      );
+        });
       document.getElementById("output").textContent = await res.text();
     };
   </script>
