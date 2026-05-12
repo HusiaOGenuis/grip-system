@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-  <!-- ✅ Load Supabase UMD build correctly -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist.js</script>
+  <!-- Load Supabase UMD build -->
+  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js
 </head>
 
 <body>
@@ -29,7 +29,7 @@
       SUPABASE_ANON_KEY
     );
 
-    // Edge base URL (correct domain)
+    // Correct Edge Functions base (note .supabase.com)
     const EDGE_BASE_URL = new URL(
       "https://lxldqhgevpssgkqtosnz.supabase.com"
     );
