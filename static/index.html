@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-  <!-- Load Supabase UMD build -->
-  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js</script>
+  <!-- ✅ Load Supabase UMD build correctly -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist.js</script>
 </head>
 
 <body>
@@ -18,7 +18,7 @@
   <pre id="output"></pre>
 
   <script>
-    // ✅ Auth is already working (you confirmed this)
+    // Sanity check
     console.log("supabase exists:", typeof window.supabase);
 
     const SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co";
@@ -29,7 +29,7 @@
       SUPABASE_ANON_KEY
     );
 
-    // ✅ Explicit Edge base (correct domain)
+    // Edge base URL (correct domain)
     const EDGE_BASE_URL = new URL(
       "https://lxldqhgevpssgkqtosnz.supabase.com"
     );
