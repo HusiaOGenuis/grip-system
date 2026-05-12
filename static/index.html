@@ -63,6 +63,28 @@
 
       document.getElementById("output").textContent = await res.text();
     };
+
+      // --- CONTRACT A: Authentication ---
+
+    document.getElementById("login").onclick = async () => {
+      await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.href
+        }
+      });
+    };
+    
+    // On load, check session
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        document.getElementById("output").textContent =
+          "Authenticated: true";
+      }
+    })();
+
+    
   </script>
 </body>
   <script>
