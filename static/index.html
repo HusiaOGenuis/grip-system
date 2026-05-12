@@ -4,12 +4,8 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-    const EDGE_BASE_URL = new URL(
-     "https://lxldqhgevpssgkqtosnz.supabase.com"
-    );
-   
-  !-- Load Supabase UMD build -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- Load Supabase UMD build -->
+  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js</script>
 </head>
 
 <body>
@@ -17,36 +13,32 @@
   <p>If you see this text, HTML is rendering.</p>
 
   <button id="login">Login</button>
-  <button id="run" disabled>Run Evaluation</button>
+  <button id="run">Run Evaluation</button>
 
   <pre id="output"></pre>
 
   <script>
+    // ✅ Auth is already working (you confirmed this)
     console.log("supabase exists:", typeof window.supabase);
 
     const SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
+    const SUPABASE_ANON_KEY = "PASTE_PUBLIC_ANON_KEY_HERE";
 
     const supabaseClient = window.supabase.createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY
     );
 
-    document.getElementById("login").onclick = async () => {
-      const { error } = await supabaseClient.auth.signInWithOAuth({
-      provider: "github",
-      options: {
-      redirectTo: "https://grip-execute.onrender.com"
-    }
-    });
-      if (error) alert(error.message);
-    };
+    // ✅ Explicit Edge base (correct domain)
+    const EDGE_BASE_URL = new URL(
+      "https://lxldqhgevpssgkqtosnz.supabase.com"
+    );
 
-    supabaseClient.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        document.getElementById("run").disabled = false;
-      }
-    });
+    document.getElementById("login").onclick = async () => {
+      await supabaseClient.auth.signInWithOAuth({
+        provider: "google"
+      });
+    };
 
     document.getElementById("run").onclick = async () => {
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -56,18 +48,19 @@
       }
 
       const decisionUrl = new URL(
-      "/functions/v1/api/decision",
-      EDGE_BASE_URL
+        "/functions/v1/api/decision",
+        EDGE_BASE_URL
       );
 
       const res = await fetch(decisionUrl.toString(), {
-      method: "POST",
-      headers: {
-      "Authorization": `Bearer ${session.access_token}`,
-      "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ score: 82 })
-      });      
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ score: 82 })
+      });
+
       document.getElementById("output").textContent = await res.text();
     };
   </script>
