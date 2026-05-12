@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-  <!-- Load Supabase UMD build -->
-  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js
+  <!-- CONTRACT: external JS must be inside script -->
+  <script>
+    console.log("JS runtime loaded");
+  </script>
 </head>
 
 <body>
@@ -17,51 +19,14 @@
 
   <pre id="output"></pre>
 
+  <!-- CONTRACT: handlers registered after DOM exists -->
   <script>
-    // Sanity check
-    console.log("supabase exists:", typeof window.supabase);
-
-    const SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co";
-    const SUPABASE_ANON_KEY = "PASTE_PUBLIC_ANON_KEY_HERE";
-
-    const supabaseClient = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
-
-    // Correct Edge Functions base (note .supabase.com)
-    const EDGE_BASE_URL = new URL(
-      "https://lxldqhgevpssgkqtosnz.supabase.com"
-    );
-
-    document.getElementById("login").onclick = async () => {
-      await supabaseClient.auth.signInWithOAuth({
-        provider: "google"
-      });
+    document.getElementById("login").onclick = () => {
+      document.getElementById("output").textContent = "Login clicked";
     };
 
-    document.getElementById("run").onclick = async () => {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
-        alert("Not authenticated");
-        return;
-      }
-
-      const decisionUrl = new URL(
-        "/functions/v1/api/decision",
-        EDGE_BASE_URL
-      );
-
-      const res = await fetch(decisionUrl.toString(), {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ score: 82 })
-      });
-
-      document.getElementById("output").textContent = await res.text();
+    document.getElementById("run").onclick = () => {
+      document.getElementById("output").textContent = "Run Evaluation clicked";
     };
   </script>
 </body>
