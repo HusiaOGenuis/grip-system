@@ -4,10 +4,8 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-  <!-- CONTRACT: external JS must be inside script -->
-  <script>
-    console.log("JS runtime loaded");
-  </script>
+  <!-- Load Supabase UMD build -->
+  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js
 </head>
 
 <body>
@@ -19,14 +17,52 @@
 
   <pre id="output"></pre>
 
-  <!-- CONTRACT: handlers registered after DOM exists -->
   <script>
-    document.getElementById("login").onclick = () => {
-      document.getElementById("output").textContent = "Login clicked";
+    // Sanity check
+    console.log("supabase exists:", typeof window.supabase);
+
+    const SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ
+";
+
+    const supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+
+    // Correct Edge Functions base (note .supabase.com)
+    const EDGE_BASE_URL = new URL(
+      "https://lxldqhgevpssgkqtosnz.supabase.com"
+    );
+
+    document.getElementById("login").onclick = async () => {
+      await supabaseClient.auth.signInWithOAuth({
+        provider: "google"
+      });
     };
 
-    document.getElementById("run").onclick = () => {
-      document.getElementById("output").textContent = "Run Evaluation clicked";
+    document.getElementById("run").onclick = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        alert("Not authenticated");
+        return;
+      }
+
+      const decisionUrl = new URL(
+        "/functions/v1/api/decision",
+        EDGE_BASE_URL
+      );
+
+      const res = await fetch(decisionUrl.toString(), {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ score: 82 })
+      });
+
+      document.getElementById("output").textContent = await res.text();
     };
   </script>
 </body>
