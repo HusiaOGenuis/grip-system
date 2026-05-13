@@ -1,51 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>GRIP Dashboard</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-jsupabase.js</script>
+  <!-- CORRECT SUPABASE CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: #f9fafb;
+      margin: 0;
+      padding: 40px;
+    }
+
+    .card {
+      max-width: 700px;
+      margin: auto;
+      background: #1f2937;
+      padding: 30px;
+      border-radius: 14px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.35);
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #60a5fa;
+    }
+
+    button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    pre {
+      background: #0f172a;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin-top: 20px;
+      color: #22c55e;
+    }
+
+    .error {
+      color: #ef4444;
+    }
+  </style>
 </head>
 
 <body>
-  <h1>GRIP Dashboard</h1>
-  <p>If you see this text, HTML is rendering.</p>
+  <div class="card">
+    <h1>GRIP Dashboard</h1>
 
-  <button id="login">Login</button>
+    <p>If you see this page, HTML rendering is working.</p>
 
-  <pre id="output"></pre>
+    <button id="loginBtn">Login with Google</button>
+
+    <pre id="output">Initializing...</pre>
+  </div>
 
   <script>
-    if (typeof window.supabase !== "object") {
-      document.getElementById("output").textContent =
-        "ERROR: Supabase not loaded";
-      throw new Error("Supabase missing");
-    }
+    const output = document.getElementById("output");
 
-    const SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpY XQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
+    try {
+      // VERIFY SUPABASE LOADED
+      if (!window.supabase) {
+        throw new Error("Supabase library failed to load.");
+      }
 
-    const supabaseClient = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
+      // =========================
+      // SUPABASE CONFIG
+      // =========================
 
-    document.getElementById("login").onclick = async () => {
-      await supabaseClient.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.href
+      const SUPABASE_URL =
+      "https://lxldqhgevpssgkqtosnz.supabase.co";
+
+      const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
+
+      // CREATE CLIENT
+      const supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+      );
+
+      output.textContent =
+        "Supabase loaded successfully.\nChecking session...";
+
+      // =========================
+      // LOGIN BUTTON
+      // =========================
+
+      document.getElementById("loginBtn").addEventListener(
+        "click",
+        async () => {
+          const { error } =
+            await supabaseClient.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: window.location.origin
+              }
+            });
+
+          if (error) {
+            output.textContent =
+              "OAuth Error:\n" + error.message;
+
+            output.classList.add("error");
+          }
         }
-      });
-    };
+      );
 
-    (async () => {
-      const { data: { session } } =
-        await supabaseClient.auth.getSession();
+      // =========================
+      // SESSION CHECK
+      // =========================
 
-      document.getElementById("output").textContent =
-        session ? "Authenticated: true" : "Authenticated: false";
-    })();
+      async function checkSession() {
+        const {
+          data: { session },
+          error
+        } = await supabaseClient.auth.getSession();
+
+        if (error) {
+          output.textContent =
+            "Session Error:\n" + error.message;
+
+          output.classList.add("error");
+          return;
+        }
+
+        if (session) {
+          output.textContent =
+            "Authenticated: TRUE\n\nUser:\n" +
+            JSON.stringify(session.user, null, 2);
+        } else {
+          output.textContent =
+            "Authenticated: FALSE";
+        }
+      }
+
+      checkSession();
+
+    } catch (err) {
+      output.textContent =
+        "Fatal Error:\n" + err.message;
+
+      output.classList.add("error");
+
+      console.error(err);
+    }
   </script>
 </body>
 </html>
