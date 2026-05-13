@@ -1,8 +1,54 @@
 <!DOCTYPE html>
-<html>
-  <body>
-    <script>
-      document.body.textContent = "RAW DELIVERY OK";
-    </script>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>GRIP Dashboard</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-jsupabase.js</script>
+</head>
+
+<body>
+  <h1>GRIP Dashboard</h1>
+  <p>If you see this text, HTML is rendering.</p>
+
+  <button id="login">Login</button>
+
+  <pre id="output"></pre>
+
+  <script>
+    if (typeof window.supabase !== "object") {
+      document.getElementById("output").textContent =
+        "ERROR: Supabase not loaded";
+      throw new Error("Supabase missing");
+    }
+
+    const SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
+    FzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6Im
+    Fub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gn
+    gx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
+
+    const supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+
+    document.getElementById("login").onclick = async () => {
+      await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.href
+        }
+      });
+    };
+
+    (async () => {
+      const { data: { session } } =
+        await supabaseClient.auth.getSession();
+
+      document.getElementById("output").textContent =
+        session ? "Authenticated: true" : "Authenticated: false";
+    })();
+  </script>
+</body>
 </html>
