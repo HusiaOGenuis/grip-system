@@ -1,168 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <title>GRIP – Auth Check</title>
 
-  <title>GRIP Dashboard</title>
-
-  <!-- CORRECT SUPABASE CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111827;
-      color: #f9fafb;
-      margin: 0;
-      padding: 40px;
-    }
-
-    .card {
-      max-width: 700px;
-      margin: auto;
-      background: #1f2937;
-      padding: 30px;
-      border-radius: 14px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.35);
-    }
-
-    h1 {
-      margin-top: 0;
-      color: #60a5fa;
-    }
-
-    button {
-      padding: 12px 20px;
-      border: none;
-      border-radius: 8px;
-      background: #2563eb;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-      margin-top: 15px;
-    }
-
-    button:hover {
-      background: #1d4ed8;
-    }
-
-    pre {
-      background: #0f172a;
-      padding: 16px;
-      border-radius: 8px;
-      overflow-x: auto;
-      margin-top: 20px;
-      color: #22c55e;
-    }
-
-    .error {
-      color: #ef4444;
-    }
-  </style>
+  <!-- Raw static HTML, no pipeline -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 
 <body>
-  <div class="card">
-    <h1>GRIP Dashboard</h1>
+  <h1>GRIP – Authentication</h1>
+  <p>If you see this page, raw delivery is working.</p>
 
-    <p>If you see this page, HTML rendering is working.</p>
+  <button id="login">Login with Google</button>
+  <button id="logout">Logout</button>
 
-    <button id="loginBtn">Login with Google</button>
-
-    <pre id="output">Initializing...</pre>
-  </div>
+  <pre id="status">Initializing…</pre>
 
   <script>
-    const output = document.getElementById("output");
-
-    try {
-      // VERIFY SUPABASE LOADED
-      if (!window.supabase) {
-        throw new Error("Supabase library failed to load.");
-      }
-
-      // =========================
-      // SUPABASE CONFIG
-      // =========================
-
-      const SUPABASE_URL =
-      "https://lxldqhgevpssgkqtosnz.supabase.co";
-
-      const SUPABASE_ANON_KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
-
-      // CREATE CLIENT
-      const supabaseClient = window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY
-      );
-
-      output.textContent =
-        "Supabase loaded successfully.\nChecking session...";
-
-      // =========================
-      // LOGIN BUTTON
-      // =========================
-
-      document.getElementById("loginBtn").addEventListener(
-        "click",
-        async () => {
-          const { error } =
-            await supabaseClient.auth.signInWithOAuth({
-              provider: "google",
-              options: {
-                redirectTo: window.location.origin
-              }
-            });
-
-          if (error) {
-            output.textContent =
-              "OAuth Error:\n" + error.message;
-
-            output.classList.add("error");
-          }
-        }
-      );
-
-      // =========================
-      // SESSION CHECK
-      // =========================
-
-      async function checkSession() {
-        const {
-          data: { session },
-          error
-        } = await supabaseClient.auth.getSession();
-
-        if (error) {
-          output.textContent =
-            "Session Error:\n" + error.message;
-
-          output.classList.add("error");
-          return;
-        }
-
-        if (session) {
-          output.textContent =
-            "Authenticated: TRUE\n\nUser:\n" +
-            JSON.stringify(session.user, null, 2);
-        } else {
-          output.textContent =
-            "Authenticated: FALSE";
-        }
-      }
-
-      checkSession();
-
-    } catch (err) {
-      output.textContent =
-        "Fatal Error:\n" + err.message;
-
-      output.classList.add("error");
-
-      console.error(err);
+    // ---- CONTRACT: SUPABASE LOAD ----
+    if (typeof window.supabase !== "object") {
+      document.getElementById("status").textContent =
+        "ERROR: Supabase failed to load";
+      throw new Error("Supabase missing");
     }
+
+    // ---- SUPABASE CONFIG ----
+    const SUPABASE_URL = 
+    "https://lxldqhgevpssgkqtosnz.supabase.co";
+    const SUPABASE_ANON_KEY = 
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
+
+    const supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+
+    const statusEl = document.getElementById("status");
+
+    // ---- LOGIN ----
+    document.getElementById("login").onclick = async () => {
+      await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.href
+        }
+      });
+    };
+
+    // ---- LOGOUT ----
+    document.getElementById("logout").onclick = async () => {
+      await supabaseClient.auth.signOut();
+      statusEl.textContent = "Logged out";
+    };
+
+    // ---- SESSION CHECK ----
+    async function checkSession() {
+      const { data: { session }, error } =
+        await supabaseClient.auth.getSession();
+
+      if (error) {
+        statusEl.textContent = "Session error:\n" + error.message;
+        return;
+      }
+
+      if (session) {
+        statusEl.textContent =
+          "Authenticated: TRUE\n\nUser:\n" +
+          JSON.stringify(session.user, null, 2);
+      } else {
+        statusEl.textContent = "Authenticated: FALSE";
+      }
+    }
+
+    checkSession();
   </script>
 </body>
 </html>
