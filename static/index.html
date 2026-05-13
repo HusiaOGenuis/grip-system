@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>GRIP Dashboard</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist.js</script>
 </head>
 
 <body>
@@ -17,80 +17,35 @@
   <pre id="output"></pre>
 
   <script>
-    // Sanity check
-    console.log("supabase exists:", typeof window.supabase);
+    console.log("Supabase loaded:", typeof window.supabase);
 
     const SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ
-";
+
+    // ✅ FIXED: single-line string
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ";
 
     const supabaseClient = window.supabase.createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY
     );
 
-    // Correct Edge Functions base (note .supabase.com)
-    const EDGE_BASE_URL = new URL(
-      "https://lxldqhgevpssgkqtosnz.supabase.com"
-    );
-
     document.getElementById("login").onclick = async () => {
       await supabaseClient.auth.signInWithOAuth({
-        provider: "google"
+        provider: "google",
+        options: { redirectTo: window.location.href }
       });
     };
 
     document.getElementById("run").onclick = async () => {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
-        alert("Not authenticated");
-        return;
-      }
-
-      const decisionUrl = new URL(
-        "/functions/v1/api/decision",
-        EDGE_BASE_URL
-      );
-
-      const res = await fetch(decisionUrl.toString(), {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ score: 82 })
-      });
-
-      document.getElementById("output").textContent = await res.text();
+      document.getElementById("output").textContent =
+        "Run Evaluation clicked";
     };
-    // --- Contract A: Authentication only ---
 
-document.getElementById("login").onclick = async () => {
-  await supabaseClient.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: window.location.href
-    }
-  });
-};
-
-// On page load, check whether we are authenticated
-(async () => {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-
-  if (session) {
-    document.getElementById("output").textContent =
-      "Authenticated: true";
-  } else {
-    document.getElementById("output").textContent =
-      "Authenticated: false";
-  }
-})();
-    
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      document.getElementById("output").textContent =
+        session ? "Authenticated: true" : "Authenticated: false";
+    })();
   </script>
 </body>
-  <script>
-  document.getElementById("output").textContent =
-    "Supabase loaded: " + (typeof window.supabase);
-</script>
 </html>
