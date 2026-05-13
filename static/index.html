@@ -63,27 +63,29 @@
 
       document.getElementById("output").textContent = await res.text();
     };
+    // --- Contract A: Authentication only ---
 
-      // --- CONTRACT A: Authentication ---
+document.getElementById("login").onclick = async () => {
+  await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: window.location.href
+    }
+  });
+};
 
-    document.getElementById("login").onclick = async () => {
-      await supabaseClient.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.href
-        }
-      });
-    };
-    
-    // On load, check session
-    (async () => {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        document.getElementById("output").textContent =
-          "Authenticated: true";
-      }
-    })();
+// On page load, check whether we are authenticated
+(async () => {
+  const { data: { session } } = await supabaseClient.auth.getSession();
 
+  if (session) {
+    document.getElementById("output").textContent =
+      "Authenticated: true";
+  } else {
+    document.getElementById("output").textContent =
+      "Authenticated: false";
+  }
+})();
     
   </script>
 </body>
