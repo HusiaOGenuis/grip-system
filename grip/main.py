@@ -1,4 +1,4 @@
-from grip.grip_intelligence import evaluate_grip_policy
+from fastapi.middleware.cors import CORSMiddlewarefrom grip.grip_intelligence import evaluate_grip_policy
 from grip.authz import require_access
 from grip.auth import get_current_user
 import os
@@ -35,7 +35,13 @@ app = FastAPI(
     version=APP_VERSION,
     description="Decision-grade governance, risk, and integrity engine",
 )
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow all for now
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # ---------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------
