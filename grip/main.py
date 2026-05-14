@@ -1,10 +1,12 @@
-from fastapi.middleware.cors import CORSMiddlewarefrom grip.grip_intelligence import evaluate_grip_policy
+from fastapi import FastAPI, Header, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+
+from grip.grip_intelligence import evaluate_grip_policy
 from grip.authz import require_access
 from grip.auth import get_current_user
+
 import os
 from typing import Dict, Any
-
-from fastapi import FastAPI, Header, HTTPException, Depends
 from dotenv import load_dotenv
 
 from grip.engine.config_loader import load_all_configuration
@@ -21,9 +23,6 @@ from grip.engine.confidence_override_guard import (
 from grip.engine.override_writer import write_override_record
 from grip.engine.resolution_engine import resolve_effective_verdict
 
-# ---------------------------------------------------------------------
-# App Initialization
-# ---------------------------------------------------------------------
 
 load_dotenv()
 
@@ -35,9 +34,11 @@ app = FastAPI(
     version=APP_VERSION,
     description="Decision-grade governance, risk, and integrity engine",
 )
+
+# ✅ CORS — required for Carrd (FULLY DECLARED, not patched in later)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all for now
+    allow_origins=["*"],  # production: narrow this later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
