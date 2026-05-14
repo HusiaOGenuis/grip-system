@@ -1,0 +1,51 @@
+{
+  "trace_id": "bfb264f1-0588-4cc3-9c71-e563d51d6f1e",
+  "timestamp": "2026-05-10T09:36:22.291749Z",
+  "engine_version": "v1.0.0",
+  "request": {
+    "score": 82
+  },
+  "result": {
+    "trace_id": "bfb264f1-0588-4cc3-9c71-e563d51d6f1e",
+    "verdict": "ALLOW",
+    "rationale": "Score exceeds approval threshold",
+    "remediation": null,
+    "confidence": 0.6,
+    "envelope": {
+      "confidence_band": "MEDIUM",
+      "reliance": "HUMAN_REVIEW",
+      "scope": "CASE_SPECIFIC"
+    }
+  },
+  "config_snapshot": {
+    "verdict_taxonomy": {
+      "version": 1.0,
+      "verdicts": [
+        "ALLOW",
+        "DISALLOW",
+        "CONDITIONAL",
+        "ESCALATE"
+      ]
+    },
+    "pause_criteria": {
+      "version": 1.0,
+      "criteria": [
+        {
+          "id": "MISSING_PROVENANCE",
+          "description": "Input data lacks required provenance",
+          "action": "PAUSE"
+        },
+        {
+          "id": "OUT_OF_SCOPE",
+          "description": "Decision request exceeds declared system scope",
+          "action": "PAUSE"
+        },
+        {
+          "id": "CONFLICTING_RULES",
+          "description": "Multiple rules produce incompatible outcomes",
+          "action": "PAUSE"
+        }
+      ]
+    }
+  }
+}

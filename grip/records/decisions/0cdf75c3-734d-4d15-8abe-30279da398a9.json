@@ -1,0 +1,45 @@
+{
+  "trace_id": "0cdf75c3-734d-4d15-8abe-30279da398a9",
+  "timestamp": "2026-05-14T05:48:28.748039Z",
+  "engine_version": "v1.0.0",
+  "request": {},
+  "result": {
+    "trace_id": "0cdf75c3-734d-4d15-8abe-30279da398a9",
+    "verdict": "ESCALATE",
+    "rationale": "Score below minimum safe threshold",
+    "remediation": null,
+    "confidence": null,
+    "envelope": null
+  },
+  "config_snapshot": {
+    "verdict_taxonomy": {
+      "version": 1.0,
+      "verdicts": [
+        "ALLOW",
+        "DISALLOW",
+        "CONDITIONAL",
+        "ESCALATE"
+      ]
+    },
+    "pause_criteria": {
+      "version": 1.0,
+      "criteria": [
+        {
+          "id": "MISSING_PROVENANCE",
+          "description": "Input data lacks required provenance",
+          "action": "PAUSE"
+        },
+        {
+          "id": "OUT_OF_SCOPE",
+          "description": "Decision request exceeds declared system scope",
+          "action": "PAUSE"
+        },
+        {
+          "id": "CONFLICTING_RULES",
+          "description": "Multiple rules produce incompatible outcomes",
+          "action": "PAUSE"
+        }
+      ]
+    }
+  }
+}
