@@ -8,3 +8,4 @@ opentelemetry-sdk
 httpx
 python-jose[cryptography]
 python-dotenv
+PyYAML
