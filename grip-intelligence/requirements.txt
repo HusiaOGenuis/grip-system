@@ -1,3 +1,4 @@
 fastapi
 uvicorn
 requests
+supabase>=2.0.0
