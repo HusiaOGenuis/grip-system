@@ -215,4 +215,39 @@ def get_effective_decision(
     trace_id: str,
     _: None = Depends(require_api_key),
 ):
+
+# ---------------------------------------------------------------------
+# login endpoint 
+# ---------------------------------------------------------------------
     return resolve_effective_verdict(trace_id)
+    
+import requests
+from fastapi import Body
+
+@app.post("/login")
+def login(payload: dict = Body(...)):
+    email = payload.get("email")
+    password = payload.get("password")
+
+    SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co"
+    SUPABASE_KEY = "YOUR_ANON_KEY"
+
+    res = requests.post(
+        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+        headers={
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        },
+        json={
+            "email": email,
+            "password": password,
+        },
+    )
+
+    if res.status_code != 200:
+        return {"detail": "Invalid credentials"}
+
+    return {
+        "access_token": res.json().get("access_token")
+    }
