@@ -1,6 +1,6 @@
+from supabase import create_client
 from fastapi import FastAPI, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-
 from grip.grip_intelligence import evaluate_grip_policy
 from grip.authz import require_access
 from grip.auth import get_current_user
@@ -90,6 +90,7 @@ def decide(
     request: Dict[str, Any],
     identity: dict = Depends(require_access),
 ):
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     # ---------------------------------------------------------------
     # STEP 4 — GRIP INTELLIGENCE GATE
     # ---------------------------------------------------------------
@@ -219,18 +220,15 @@ def get_effective_decision(
 # ---------------------------------------------------------------------
 # login endpoint 
 # ---------------------------------------------------------------------
-    return resolve_effective_verdict(trace_id)
-    
-import requests
-from fastapi import Body
+from fastapi import HTTPException
 
 @app.post("/login")
-def login(payload: dict = Body(...)):
+def login(payload: dict):
     email = payload.get("email")
     password = payload.get("password")
 
     SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co"
-    SUPABASE_KEY = "YOUR_ANON_KEY"
+    SUPABASE_KEY = "SUPABASE_ANON_KEY =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4bGRxaGdldnBzc2drcXRvc256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDEwOTYsImV4cCI6MjA5MzA3NzA5Nn0.Gngx4y6VMrOBISyICnA-pcHpp3NIWq_VITKOTskg7MQ"
 
     res = requests.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
@@ -245,9 +243,21 @@ def login(payload: dict = Body(...)):
         },
     )
 
+    data = res.json()
+
+    print("LOGIN RESPONSE:", data)  # ✅ DEBUG
+
     if res.status_code != 200:
-        return {"detail": "Invalid credentials"}
+        raise HTTPException(
+            status_code=401,
+            detail=data.get("error_description", "Invalid credentials")
+        )
 
     return {
-        "access_token": res.json().get("access_token")
+        "access_token": data.get("access_token")
     }
+    
+@app.get("/logs")
+def get_logs():
+    res = supabase.table("decision_logs").select("*").order("created_at", desc=True).execute()
+    return res.data
