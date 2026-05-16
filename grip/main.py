@@ -160,7 +160,8 @@ def override_decision(payload: Dict[str, Any], _: None = Depends(require_api_key
 @app.get("/decision/{trace_id}/effective")
 def get_effective_decision(trace_id: str, _: None = Depends(require_api_key)):
     return resolve_effective_verdict(trace_id)
-
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 
 SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co"
