@@ -1,6 +1,7 @@
 import os
-from typing import Dict, Any
 import requests
+from fastapi import HTTPException, Body
+from typing import Dict, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -160,10 +161,17 @@ def override_decision(payload: Dict[str, Any], _: None = Depends(require_api_key
 def get_effective_decision(trace_id: str, _: None = Depends(require_api_key)):
     return resolve_effective_verdict(trace_id)
 
+
+
+SUPABASE_URL = "https://lxldqhgevpssgkqtosnz.supabase.co"
+SUPABASE_KEY = "YOUR_REAL_KEY_HERE"
+
 @app.post("/login")
-def login(payload: dict):
+def login(payload: dict = Body(...)):
+
     email = payload.get("email")
     password = payload.get("password")
+
     res = requests.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
         headers={
@@ -171,16 +179,25 @@ def login(payload: dict):
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
         },
-        json={"email": email, "password": password},
+        json={
+            "email": email,
+            "password": password,
+        },
     )
+
     data = res.json()
+
+    print("LOGIN RESPONSE:", data)
+
     if res.status_code != 200:
         raise HTTPException(
             status_code=401,
-            detail=data.get("error_description", "Invalid credentials"),
+            detail=data.get("error_description", "Invalid credentials")
         )
-    return {"access_token": data.get("access_token")}
 
+    return {
+        "access_token": data.get("access_token")
+    }
 @app.get("/logs")
 def get_logs():
     res = supabase.table("decision_logs").select("*").order("created_at", desc=True).execute()
