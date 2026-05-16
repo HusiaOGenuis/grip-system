@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Depends, Body
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 from supabase import create_client, Client
@@ -116,6 +117,23 @@ def login(payload: dict = Body(...)):
             detail=data.get("error_description", "Invalid credentials")
         )
     return {"access_token": data.get("access_token")}
+    
+@app.post("/debug-create-user")
+def debug_create_user():
+    res = requests.post(
+        f"{SUPABASE_URL}/auth/v1/signup",
+        headers={
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+        },
+        json={
+            "email": "testuser123@email.com",
+            "password": "StrongPassword123!"
+        },
+    )
+
+    return res.json()
+   
 
 @app.post("/request-password-reset")
 def request_reset(payload: dict):
@@ -144,6 +162,45 @@ def update_password(payload: dict):
         json={"password": new_password},
     )
     return res.json()
+
+@app.get("/reset", response_class=HTMLResponse)
+def reset_page():
+    return """
+    <html>
+    <body style="font-family: Arial; padding: 40px;">
+        <h2>Reset Your Password</h2>
+
+        <input id="password" type="password" placeholder="New password" />
+        <button onclick="resetPassword()">Update Password</button>
+
+        <script>
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const access_token = params.get("access_token");
+
+        function resetPassword() {
+            const newPassword = document.getElementById("password").value;
+
+            fetch("/update-password", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    access_token: access_token,
+                    new_password: newPassword
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert("Password updated successfully!");
+                window.location.href = "/";
+            });
+        }
+        </script>
+    </body>
+    </html>
+    """
 
 @app.get("/logs")
 def get_logs():
@@ -186,12 +243,10 @@ def decide(request: Dict[str, Any], identity: dict = Depends(require_access)):
             rationale=base_result.rationale,
             reremediation=base_result.reremediation if hasattr(base_result, 'reremediation') else getattr(base_result, 'reremediation', None),
             remediation=base_result.reremediation if hasattr(base_result, 'reremediation') else getattr(base_result, 'reremediation', None) if not hasattr(base_result, 'reremediation') else base_result.reremediation, 
-            # Note: normalized fallback handling for remediation field variants
             confidence=confidence,
             envelope=envelope,
         )
         
-        # Explicit structure cleanup fallback
         if hasattr(base_result, 'remediation') and not hasattr(final_result, 'reremediation'):
             final_result.reremediation = base_result.reremediation
 
@@ -254,3 +309,5 @@ def override_decision(payload: Dict[str, Any], _: None = Depends(require_api_key
 @app.get("/decision/{trace_id}/effective")
 def get_effective_decision(trace_id: str, _: None = Depends(require_api_key)):
     return resolve_effective_verdict(trace_id)
+    
+    
