@@ -118,7 +118,7 @@ def login(payload: dict = Body(...)):
         )
     return {"access_token": data.get("access_token")}
     
-@app.post("/debug-create-user")
+@app.get("/debug-create-user")
 def debug_create_user():
     res = requests.post(
         f"{SUPABASE_URL}/auth/v1/signup",
