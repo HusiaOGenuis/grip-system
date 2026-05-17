@@ -91,6 +91,17 @@ def whoami(user=Depends(get_current_user)):
         "role": user.get("role"),
     }
 
+@app.get("/login", response_class=HTMLResponse)
+def login_page():
+    return """
+    <html>
+    <body>
+        <h2>Login endpoint active</h2>
+        <p>This route should only be accessed via POST.</p>
+    </body>
+    </html>
+    """
+
 @app.post("/login")
 def login(payload: dict = Body(...)):
     email = payload.get("email")
