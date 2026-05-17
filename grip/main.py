@@ -29,7 +29,6 @@ from grip.engine.resolution_engine import resolve_effective_verdict
 # ENVIRONMENT INITIALIZATION & ERROR HANDLING
 # -----------------------------------------------------------------------------
 load_dotenv()
-
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 GRIP_API_KEY = os.getenv("GRIP_API_KEY")
@@ -116,8 +115,63 @@ def login(payload: dict = Body(...)):
             status_code=401,
             detail=data.get("error_description", "Invalid credentials")
         )
-    return {"access_token": data.get("access_token")}
-    
+    return {
+        "access_token": data.get("access_token")
+    }
+
+@app.get("/", response_class=HTMLResponse)
+def landing():
+    return """
+    <html>
+    <body style="font-family: Arial; padding: 40px;">
+    <h1>GRIP Systems</h1>
+    <p>Decision-grade governance, risk, and integrity engine</p>
+    <a href="/login">Login</a><br><br>
+    <a href="/capabilities">Capabilities</a>
+    </body>
+    </html>
+    """
+
+@app.get("/capabilities", response_class=HTMLResponse)
+def capabilities():
+    return """
+    <html>
+    <body style="font-family: Arial; padding: 40px;">
+    <h2>GRIP Capabilities</h2>
+    <ul>
+    <li>Decision Automation</li>
+    <li>Policy Enforcement</li>
+    <li>Confidence Scoring</li>
+    <li>Override Governance</li>
+    </ul>
+    <a href="/">Back to Home</a>
+    </body>
+    </html>
+    """
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    return """
+    <html>
+    <body style="font-family: Arial; padding: 40px;">
+    <h1>GRIP Dashboard</h1>
+    <button onclick="getLogs()">Load Decision Logs</button>
+    <h3>Logs:</h3>
+    <pre id="logs"></pre>
+    <script>
+    function getLogs() {
+    fetch('/logs')
+    .then(res => res.json())
+    .then(data => {
+    document.getElementById('logs').textContent =
+    JSON.stringify(data, null, 2);
+    });
+    }
+    </script>
+    </body>
+    </html>
+    """
+
 @app.get("/debug-create-user")
 def debug_create_user():
     res = requests.post(
@@ -127,13 +181,11 @@ def debug_create_user():
             "apikey": SUPABASE_KEY,
         },
         json={
-            "email": "testuser123@email.com",
+            "email": "testuser123@gmail.com",
             "password": "StrongPassword123!"
         },
     )
-
     return res.json()
-   
 
 @app.post("/request-password-reset")
 def request_reset(payload: dict):
@@ -168,36 +220,32 @@ def reset_page():
     return """
     <html>
     <body style="font-family: Arial; padding: 40px;">
-        <h2>Reset Your Password</h2>
-
-        <input id="password" type="password" placeholder="New password" />
-        <button onclick="resetPassword()">Update Password</button>
-
-        <script>
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        const access_token = params.get("access_token");
-
-        function resetPassword() {
-            const newPassword = document.getElementById("password").value;
-
-            fetch("/update-password", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    access_token: access_token,
-                    new_password: newPassword
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                alert("Password updated successfully!");
-                window.location.href = "/";
-            });
-        }
-        </script>
+    <h2>Reset Your Password</h2>
+    <input id="password" type="password" placeholder="New password" />
+    <button onclick="resetPassword()">Update Password</button>
+    <script>
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const access_token = params.get("access_token");
+    function resetPassword() {
+    const newPassword = document.getElementById("password").value;
+    fetch("/update-password", {
+    method: "POST",
+    headers: {
+    "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+    access_token: access_token,
+    new_password: newPassword
+    })
+    })
+    .then(res => res.json())
+    .then(data => {
+    alert("Password updated successfully!");
+    window.location.href = "/";
+    });
+    }
+    </script>
     </body>
     </html>
     """
@@ -249,7 +297,6 @@ def decide(request: Dict[str, Any], identity: dict = Depends(require_access)):
         
         if hasattr(base_result, 'remediation') and not hasattr(final_result, 'reremediation'):
             final_result.reremediation = base_result.reremediation
-
         write_decision_record(
             request=request,
             result=final_result.to_record(),
@@ -309,5 +356,3 @@ def override_decision(payload: Dict[str, Any], _: None = Depends(require_api_key
 @app.get("/decision/{trace_id}/effective")
 def get_effective_decision(trace_id: str, _: None = Depends(require_api_key)):
     return resolve_effective_verdict(trace_id)
-    
-    
