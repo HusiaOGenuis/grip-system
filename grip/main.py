@@ -96,8 +96,8 @@ def login_page():
     return """
     <html>
     <body>
-        <h2>Login endpoint active</h2>
-        <p>This route should only be accessed via POST.</p>
+    <h2>Login endpoint active</h2>
+    <p>This route should only be accessed via POST.</p>
     </body>
     </html>
     """
@@ -119,8 +119,12 @@ def login(payload: dict = Body(...)):
             "password": password,
         },
     )
-    data = res.json()
     
+    try:
+        data = res.json()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Identity provider returned an unparsable response")
+        
     if res.status_code != 200:
         raise HTTPException(
             status_code=401,
@@ -296,18 +300,20 @@ def decide(request: Dict[str, Any], identity: dict = Depends(require_access)):
         )
         envelope = build_envelope(confidence)
         
+        # Fixed logic mapping for remediation variables cleanly safely 
+        remediation_val = getattr(base_result, 'remediation', None)
+        if remediation_val is None:
+            remediation_val = getattr(base_result, 'reremediation', None)
+
         final_result = DecisionResult(
             trace_id=base_result.trace_id,
             verdict=base_result.verdict,
             rationale=base_result.rationale,
-            reremediation=base_result.reremediation if hasattr(base_result, 'reremediation') else getattr(base_result, 'reremediation', None),
-            remediation=base_result.reremediation if hasattr(base_result, 'reremediation') else getattr(base_result, 'reremediation', None) if not hasattr(base_result, 'reremediation') else base_result.reremediation, 
+            remediation=remediation_val,
             confidence=confidence,
             envelope=envelope,
         )
         
-        if hasattr(base_result, 'remediation') and not hasattr(final_result, 'reremediation'):
-            final_result.reremediation = base_result.reremediation
         write_decision_record(
             request=request,
             result=final_result.to_record(),
