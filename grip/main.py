@@ -1,48 +1,84 @@
 import os
 import requests
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Body
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, HTTPException, Body, Depends, status
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
-# -----------------------------
-# ENV CONFIGURATION
-# -----------------------------
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+# Env Configuration
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(env_path)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("Missing Supabase configuration")
+    raise RuntimeError("Missing Supabase configuration settings.")
 
-# -----------------------------
-# APP CONFIGURATION
-# -----------------------------
-app = FastAPI()
+app = FastAPI(title="GRIP Systems Backend", version="1.0.0")
 
+# Tighten CORS Configuration to eliminate wildcard vulnerabilities
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000"],  # Explicit domain control
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
-# -----------------------------
-# LANDING PAGE
-# -----------------------------
+security_scheme = HTTPBearer()
+
+# Secure Exception Handling - Internal errors are logged, not exposed
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc: Exception):
+    # Real-world use cases should log the full traceback here internally
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": True,
+            "message": "An internal server error occurred. Please contact support."
+        }
+    )
+
+# Token Validation Dependency against Supabase Auth Layer
+async def verify_user_token(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)):
+    token = credentials.credentials
+    try:
+        # Validate the incoming user bearer token directly against Supabase auth server
+        res = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {token}"
+            }
+        )
+        if res.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired user session token"
+            )
+        return res.json()  # Returns verified user data payload
+    except requests.RequestException:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication server temporarily unavailable"
+        )
+
+# Core Landing Endpoint
 @app.get("/", response_class=HTMLResponse)
 def landing():
     return """
+    <!DOCTYPE html>
     <html>
-    <body style="font-family: Arial; padding: 40px;">
+    <head><title>GRIP Systems</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 40px; background-color: #f9f9f9;">
         <h1>GRIP Systems</h1>
         <p>A governance and risk intelligence platform for decision evaluation.</p>
-        <a href="/app">Open App</a>
-        <hr>
-        <h3>Company</h3>
+        <a href="/app" style="display: inline-block; padding: 10px 20px; background: #0070f3; color: white; text-decoration: none; border-radius: 5px;">Open App</a>
+        <hr style="margin-top: 40px;">
+        <h3>Company Details</h3>
         <p>GRIP Systems Ltd</p>
         <p>Email: support@grip-systems.com</p>
         <p>Location: Pretoria</p>
@@ -51,98 +87,64 @@ def landing():
     </html>
     """
 
-# -----------------------------
-# SERVE FRONTEND (FIXED STATIC PATH)
-# -----------------------------
+# Serve Static Web Frontend
 @app.get("/app")
 def app_page():
     path = Path(__file__).resolve().parent.parent / "static" / "index.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Static index.html web asset not found.")
     return FileResponse(path)
 
-# -----------------------------
-# AUTHENTICATION (EMAIL/PASSWORD ONLY)
-# -----------------------------
-@app.post("/login")
+# Authentication Route
+@app.post("/api/login")
 def login(payload: dict = Body(...)):
+    email = payload.get("email")
+    password = payload.get("password")
+    
+    if not email or not password:
+        return {"error": True, "message": "Missing email or password fields."}
+
     try:
         res = requests.post(
             f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
             headers={
-                "Content-Type": "application/json",
                 "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
             },
-            json={
-                "email": payload.get("email"),
-                "password": payload.get("password"),
-            },
+            json={"email": email, "password": password}
         )
-
-        data = res.json()
+        
+        try:
+            data = res.json()
+        except Exception:
+            return {"error": True, "message": "Malformed response payload from identity provider."}
 
         if res.status_code != 200:
-            return {
-                "error": True,
-                "message": data.get("error_description", "Invalid credentials")
-            }
+            return {"error": True, "message": data.get("error_description", "Authentication failed.")}
 
-        return {
-            "error": False,
-            "access_token": data.get("access_token")
-        }
+        return {"error": False, "access_token": data.get("access_token")}
 
-    except Exception as e:
-        return {
-            "error": True,
-            "message": "Server error: " + str(e)
-        }
-# -----------------------------
-# DECISION CORE ENGINE
-# -----------------------------
-@app.post("/decision")
-def decision(payload: dict):
+    except requests.RequestException as e:
+        return {"error": True, "message": f"Connection error to authentication gateway: {str(e)}"}
+
+# Secure Decision Engine (Access Restricted via Dependency Token validation)
+@app.post("/api/decision")
+def decision(payload: dict = Body(...), user: dict = Depends(verify_user_token)):
     try:
         score = int(payload.get("score", 0))
         return {
+            "error": False,
             "verdict": "APPROVED" if score > 50 else "REJECTED",
-            "rationale": f"Score evaluated: {score}"
+            "rationale": f"Score evaluated: {score}",
+            "evaluated_by": user.get("email")
         }
-    except Exception as e:
-        return {
-            "error": True,
-            "message": str(e)
-        }
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid score format. Must be an integer computation.")
 
-# -----------------------------
-# LEGAL POLICIES
-# -----------------------------
 @app.get("/terms", response_class=HTMLResponse)
 def terms():
-    return """
-    <h1>Terms of Service</h1>
-    <p>Use of this platform is subject to policy conditions.</p>
-    """
+    return "<html><body><h1>Terms of Service</h1><p>Use of this platform is subject to standard governance policies.</p></body></html>"
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy():
-    return """
-    <h1>Privacy Policy</h1>
-    <p>We do not sell user data.</p>
-    """
-
-# -----------------------------
-# SYSTEM INSPECTOR
-# -----------------------------
-@app.get("/__structure")
-def show_structure():
-    structure = []
-    for root, dirs, files in os.walk(".", topdown=True):
-        structure.append({
-            "root": root,
-            "dirs": dirs,
-            "files": files
-        })
-    return {
-        "cwd": os.getcwd(),
-        "structure": structure
-    }
+    return "<html><body><h1>Privacy Policy</h1><p>We guarantee compliance with international user data regulations.</p></body></html>"

@@ -1,66 +1,116 @@
 <!DOCTYPE html>
-<html>
-<body style="font-family: Arial; padding: 40px;">
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GRIP Systems Hub</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; max-width: 600px; margin: auto; }
+        .section { background: #f4f4f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input { width: 100%; padding: 8px; margin: 8px 0; box-sizing: border-box; }
+        button { background: #0070f3; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0051b3; }
+        pre { background: #222; color: #0f0; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
 
-<h2>Login</h2>
+    <h2>GRIP Interactive Operations Platform</h2>
+    <hr>
 
-<input id="email" type="email"><br><br>
-<input id="password" type="password"><br><br>
+    <!-- Authentication Frame -->
+    <div class="section">
+        <h3>Operator Authorization</h3>
+        <label for="email">User Email Address</label>
+        <input id="email" type="email" placeholder="operator@grip-systems.com">
+        
+        <label for="password">Password credentials</label>
+        <input id="password" type="password" placeholder="••••••••">
+        
+        <button onclick="executeLogin()">Authenticate Session</button>
+        <p id="status"></p>
+    </div>
 
-<button onclick="login()">Login</button>
+    <!-- Analytics Engine Frame -->
+    <div class="section">
+        <h3>Risk Evaluation Decision Engine</h3>
+        <label for="score">Risk Evaluation Metrics Score</label>
+        <input id="score" type="number" min="0" max="100" placeholder="Enter evaluation score...">
+        
+        <button onclick="runDecisionEngine()">Evaluate Risk Assessment</button>
+        <h4>Engine Response Output</h4>
+        <pre id="result">No metrics evaluated yet.</pre>
+    </div>
 
-<p id="status"></p>
+    <script>
+        let SESSION_TOKEN = null;
 
-<hr>
+        async function safeApiCall(url, options) {
+            try {
+                const res = await fetch(url, options);
+                if (res.status === 401) {
+                    return { error: true, message: "Session expired or authentication invalid." };
+                }
+                const text = await res.text();
+                return text ? JSON.parse(text) : { error: true, message: "Empty payload received." };
+            } catch (e) {
+                console.error("Network or parse trace error:", e);
+                return { error: true, message: "Local connection routing failure." };
+            }
+        }
 
-<h2>Decision</h2>
+        async function executeLogin() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const statusBox = document.getElementById("status");
 
-<input id="score" type="number"><br><br>
-<button onclick="runDecision()">Run Decision</button>
+            if (!email || !password) {
+                statusBox.className = "error";
+                statusBox.innerText = "Please complete all fields.";
+                return;
+            }
 
-<pre id="result"></pre>
+            statusBox.className = "";
+            statusBox.innerText = "Authenticating with security token gate...";
 
-<script>
-let TOKEN = null;
+            const data = await safeApiCall("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
 
-async function login() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    const status = document.getElementById("status");
+            if (data.error) {
+                statusBox.className = "error";
+                statusBox.innerText = data.message;
+                return;
+            }
 
-    const res = await fetch("/login", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({email, password})
-    });
+            SESSION_TOKEN = data.access_token;
+            statusBox.className = "success";
+            statusBox.innerText = "Identity verified. Session Token generated successfully.";
+        }
 
-    const data = await res.json();
+        async function runDecisionEngine() {
+            const scoreVal = document.getElementById("score").value;
+            const resultElement = document.getElementById("result");
 
-    if (data.error) {
-        status.innerText = data.message;
-        return;
-    }
+            if (!SESSION_TOKEN) {
+                resultElement.innerText = JSON.stringify({ error: true, message: "Unauthorized Request: Please authenticate first." }, null, 2);
+                return;
+            }
 
-    TOKEN = data.access_token;
-    status.innerText = "Logged in ✅";
-}
+            const data = await safeApiCall("/api/decision", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + SESSION_TOKEN
+                },
+                body: JSON.stringify({ score: scoreVal })
+            });
 
-async function runDecision() {
-    const score = document.getElementById("score").value;
-
-    const res = await fetch("/decision", {
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json",
-            "Authorization":"Bearer " + TOKEN
-        },
-        body: JSON.stringify({score})
-    });
-
-    const data = await res.json();
-    document.getElementById("result").innerText = JSON.stringify(data, null, 2);
-}
-</script>
-
+            resultElement.innerText = JSON.stringify(data, null, 2);
+        }
+    </script>
 </body>
 </html>
