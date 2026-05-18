@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 # -----------------------------
 # ENV
 # -----------------------------
-load_dotenv()
+from pathlib import Path
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -128,3 +130,20 @@ def privacy():
     <h1>Privacy Policy</h1>
     <p>We do not sell user data.</p>
     """
+import os
+
+@app.get("/__structure")
+def show_structure():
+    structure = []
+
+    for root, dirs, files in os.walk(".", topdown=True):
+        structure.append({
+            "root": root,
+            "dirs": dirs,
+            "files": files
+        })
+
+    return {
+        "cwd": os.getcwd(),
+        "structure": structure
+    }

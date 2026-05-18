@@ -25,61 +25,83 @@
 <pre id="result"></pre>
 
 <script>
-// ✅ REMOVE ALL "supabase" references (not needed)
 
 let TOKEN = null;
 
-async function login(){
-const email = document.getElementById("email").value;
-const password = document.getElementById("password").value;
-const status = document.getElementById("status");
+async function login() {
 
-status.innerText = "Logging in...";
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const status = document.getElementById("status");
 
-try {
-const res = await fetch("/login", {
-method: "POST",
-headers: {"Content-Type":"application/json"},
-body: JSON.stringify({email, password})
-});
+    status.innerText = "Logging in...";
 
-const data = await res.json();
+    try {
 
-if(data.error){
-    status.innerText = "❌ " + data.message;
-    return;
+        const res = await fetch("http://127.0.0.1:8000/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const text = await res.text();
+
+        console.log("LOGIN RAW:", text);
+
+        let data;
+
+        try {
+            data = JSON.parse(text);
+        } catch {
+            status.innerText = "Server returned HTML instead of JSON";
+            return;
+        }
+
+        if (data.error) {
+            status.innerText = "❌ " + data.message;
+            return;
+        }
+
+        TOKEN = data.access_token;
+
+        status.innerText = "✅ Logged in";
+
+    } catch (e) {
+
+        status.innerText = "❌ " + e.message;
+
+    }
 }
 
-TOKEN = data.access_token;
-status.innerText = "✅ Logged in";
+async function runDecision() {
 
-} catch(e){
-status.innerText = "❌ " + e.message;
+    const score = document.getElementById("score").value;
+    const result = document.getElementById("result");
+
+    try {
+
+        const res = await fetch("http://127.0.0.1:8000/decision", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + TOKEN
+            },
+            body: JSON.stringify({ score })
+        });
+
+        const data = await res.json();
+
+        result.innerText = JSON.stringify(data, null, 2);
+
+    } catch (e) {
+
+        result.innerText = e.message;
+
+    }
 }
-}
 
-async function runDecision(){
-const score = document.getElementById("score").value;
-const result = document.getElementById("result");
-
-try{
-const res = await fetch("/decision", {
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-"Authorization":"Bearer " + TOKEN
-},
-body: JSON.stringify({score})
-});
-
-const data = await res.json();
-result.innerText = JSON.stringify(data, null, 2);
-
-} catch(e){
-result.innerText = e.message;
-}
-}
 </script>
-
 </body>
 </html>
