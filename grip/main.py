@@ -7,10 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # -----------------------------
-# ENV
+# ENV CONFIGURATION
 # -----------------------------
-from pathlib import Path
-
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -20,7 +18,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing Supabase configuration")
 
 # -----------------------------
-# APP
+# APP CONFIGURATION
 # -----------------------------
 app = FastAPI()
 
@@ -41,35 +39,28 @@ def landing():
     <html>
     <body style="font-family: Arial; padding: 40px;">
         <h1>GRIP Systems</h1>
-
-        <p>
-        A governance and risk intelligence platform for decision evaluation.
-        </p>
-
+        <p>A governance and risk intelligence platform for decision evaluation.</p>
         <a href="/app">Open App</a>
-
         <hr>
-
         <h3>Company</h3>
         <p>GRIP Systems Ltd</p>
         <p>Email: support@grip-systems.com</p>
         <p>Location: Pretoria</p>
-
-        <a href="/terms">Terms</a> |
-        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a> | <a href="/privacy">Privacy</a>
     </body>
     </html>
     """
 
 # -----------------------------
-# SERVE FRONTEND
+# SERVE FRONTEND (FIXED STATIC PATH)
 # -----------------------------
 @app.get("/app")
 def app_page():
-    return FileResponse("static/index.html")
+    path = Path(__file__).resolve().parent.parent / "static" / "index.html"
+    return FileResponse(path)
 
 # -----------------------------
-# LOGIN
+# AUTHENTICATION (EMAIL/PASSWORD ONLY)
 # -----------------------------
 @app.post("/login")
 def login(payload: dict = Body(...)):
@@ -85,38 +76,36 @@ def login(payload: dict = Body(...)):
             "password": payload.get("password"),
         },
     )
-
+    
     try:
         data = res.json()
     except Exception:
         raise HTTPException(status_code=500, detail="Invalid response from Supabase")
-
+        
     if res.status_code != 200:
-        # ✅ force JSON-safe response
         return {
             "error": True,
             "message": data.get("error_description", "Invalid credentials")
         }
-
+        
     return {
         "error": False,
         "access_token": data.get("access_token")
     }
 
 # -----------------------------
-# DECISION
+# DECISION CORE ENGINE
 # -----------------------------
 @app.post("/decision")
 def decision(payload: dict):
     score = int(payload.get("score", 0))
-
     return {
         "verdict": "APPROVED" if score > 50 else "REJECTED",
         "rationale": f"Score evaluated: {score}"
     }
 
 # -----------------------------
-# LEGAL (FIXED)
+# LEGAL POLICIES
 # -----------------------------
 @app.get("/terms", response_class=HTMLResponse)
 def terms():
@@ -131,25 +120,20 @@ def privacy():
     <h1>Privacy Policy</h1>
     <p>We do not sell user data.</p>
     """
-import os
 
+# -----------------------------
+# SYSTEM INSPECTOR
+# -----------------------------
 @app.get("/__structure")
 def show_structure():
     structure = []
-
     for root, dirs, files in os.walk(".", topdown=True):
         structure.append({
             "root": root,
             "dirs": dirs,
             "files": files
         })
-
     return {
         "cwd": os.getcwd(),
         "structure": structure
     }
-
-@app.get("/app")
-def app_page():
-    path = Path(__file__).parent.parent / "static" / "index.html"
-    return FileResponse(path)
