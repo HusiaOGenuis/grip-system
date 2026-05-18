@@ -34,7 +34,7 @@ app.add_middleware(
 # -----------------------------
 @app.get("/", response_class=HTMLResponse)
 def landing():
-    return 
+    return """
     <html>
     <body style="font-family: Arial; padding: 40px;">
         <h1>GRIP Systems</h1>
@@ -43,7 +43,7 @@ def landing():
         A governance and risk intelligence platform for decision evaluation.
         </p>
 
-        /appOpen App</a>
+        <a href="/app">Open App</a>
 
         <hr>
 
@@ -52,11 +52,11 @@ def landing():
         <p>Email: support@grip-systems.com</p>
         <p>Location: Pretoria</p>
 
-        /termsTerms</a> |
-        /privacyPrivacy</a>
+        <a href="/terms">Terms</a> |
+        <a href="/privacy">Privacy</a>
     </body>
     </html>
-
+    """
 
 # -----------------------------
 # SERVE FRONTEND
@@ -103,17 +103,18 @@ def decision(payload: dict):
     }
 
 # -----------------------------
-# LEGAL
+# LEGAL (FIXED)
 # -----------------------------
 @app.get("/terms", response_class=HTMLResponse)
 def terms():
-    return 
+    return """
     <h1>Terms of Service</h1>
     <p>Use of this platform is subject to policy conditions.</p>
-    
+    """
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy():
-    return 
+    return """
     <h1>Privacy Policy</h1>
     <p>We do not sell user data.</p>
+    """
