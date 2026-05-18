@@ -157,42 +157,37 @@ white-space: pre-line;
 </div>
 </div>
 <script>
-/* =========================================
-GLOBAL APPLICATION STATE
-========================================= */
 let GRIP_TOKEN = null;
-/* =========================================
-SWITCH PANELS
-========================================= */
+
 function switchPanel(panelId){
- document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
- document.getElementById(panelId).classList.add('active');
+document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+document.getElementById(panelId).classList.add('active');
 }
-/* =========================================
-LOGIN
-========================================= */
+
 document.getElementById('loginBtn').addEventListener('click', async function(){
- const email = document.getElementById('email').value.trim();
- const password = document.getElementById('password').value.trim();
- const statusBox = document.getElementById('statusBox');
- if(!email || !password){
- statusBox.innerText = 'Please complete all fields.';
- return;
- }
- statusBox.innerText = 'Authenticating...';
- try{
- const response = await fetch(window.location.origin + '/login',
- {
- method:'POST',
- headers:{
- 'Content-Type':'application/json'
- },
- body:JSON.stringify({
- email:email,
- password:password
- })
- }
- );
+const email = document.getElementById('email').value.trim();
+const password = document.getElementById('password').value.trim();
+const statusBox = document.getElementById('statusBox');
+if(!email || !password){
+statusBox.innerText = 'Please complete all fields.';
+return;
+}
+statusBox.innerText = 'Authenticating...';
+try{
+const response = await fetch(
+    'https://grip-dashboard.onrender.com/login',
+    {
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json'
+        },
+        body: JSON.stringify({
+            email: email,
+            password: password
+        })
+    }
+);
+
 const text = await response.text();
 console.log("LOGIN RAW RESPONSE:", text);
 
@@ -202,65 +197,65 @@ try {
 } catch (e) {
     throw new Error("Server returned HTML instead of JSON");
 }
- if(!response.ok){
- throw new Error(data.detail || 'Authentication failed.');
- }
- /* CRITICAL FIX */
- GRIP_TOKEN = data.access_token;
- console.log("TOKEN:", GRIP_TOKEN);
- if(!GRIP_TOKEN){
- throw new Error("Login succeeded but token missing.");
- }
- statusBox.innerText = 'Authentication successful.';
- document.getElementById('loginWrapper').style.display = 'none';
- document.getElementById('app').style.display = 'block';
- } catch(err){
- console.error(err);
- statusBox.innerText = err.message;
- }
-});
-/* =========================================
-DECISION ENGINE
-========================================= */
-async function executeEvaluation(){
- const resultBox = document.getElementById('resultBox');
- const score = document.getElementById('scoreInput').value;
- if(!score){
- resultBox.innerText = 'Please enter a valid score.';
- return;
- }
- if(!GRIP_TOKEN){
- resultBox.innerText = 'You must login first.';
- return;
- }
- resultBox.innerText = 'Executing governance analysis...';
- try{
- const response = await fetch(window.location.origin + '/decision',
- {
- method:'POST',
- headers:{
- 'Content-Type':'application/json',
- 'Authorization':'Bearer ' + GRIP_TOKEN
- },
- body:JSON.stringify({
- score: parseInt(score)
- })
- }
- );
- const text = await response.text();
-console.log("RAW RESPONSE:", text);
 
+if(!response.ok){
+    throw new Error(data.detail || 'Authentication failed.');
+}
+
+GRIP_TOKEN = data.access_token;
+
+
+if(!GRIP_TOKEN){
+throw new Error("Login succeeded but token missing.");
+}
+statusBox.innerText = 'Authentication successful.';
+document.getElementById('loginWrapper').style.display = 'none';
+document.getElementById('app').style.display = 'block';
+} catch(err){
+console.error(err);
+statusBox.innerText = err.message;
+}
+});
+
+async function executeEvaluation(){
+const resultBox = document.getElementById('resultBox');
+const score = document.getElementById('scoreInput').value;
+if(!score){
+resultBox.innerText = 'Please enter a valid score.';
+return;
+}
+if(!GRIP_TOKEN){
+resultBox.innerText = 'You must login first.';
+return;
+}
+resultBox.innerText = 'Executing governance analysis...';
+try{
+
+const response = await fetch(
+    'https://grip-dashboard.onrender.com/decision',
+    {
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json',
+            'Authorization':'Bearer ' + GRIP_TOKEN
+        },
+        body: JSON.stringify({
+            score: parseInt(score)
+        })
+    }
+);
+
+const text = await response.text();
+console.log("RAW RESPONSE:", text);
 const data = JSON.parse(text);
- if(!response.ok){
- throw new Error(data.detail || 'Analysis failed.');
- }
- resultBox.innerText =
- 'Verdict: ' + data.verdict +
- '\nReason: ' + data.rationale;
- } catch(err){
- console.error(err);
- resultBox.innerText = err.message;
- }
+if(!response.ok){
+throw new Error(data.detail || 'Analysis failed.');
+}
+resultBox.innerText = 'Verdict: ' + data.verdict + '\nReason: ' + data.rationale;
+} catch(err){
+console.error(err);
+resultBox.innerText = err.message;
+}
 }
 </script>
 </body>
