@@ -1,83 +1,260 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>GRIP Login</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>GRIP Systems Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        body {
+            background: #0f1115;
+            color: white;
+        }
+        .grip-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: auto;
+            padding: 40px;
+        }
+        .grip-glass {
+            background: rgba(18, 22, 33, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+        }
+        #loginWrapper {
+            width: 100%;
+            max-width: 420px;
+            margin: 80px auto;
+            padding: 40px;
+        }
+        #loginWrapper h2 {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .grip-input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 18px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            font-size: 15px;
+        }
+        .grip-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            background: #0077ff;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .grip-btn:hover {
+            background: #0066dd;
+        }
+        #statusBox {
+            margin-top: 20px;
+            color: #9ca3af;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+        #app {
+            display: none;
+            margin-top: 30px;
+        }
+        .layout {
+            display: flex;
+            gap: 24px;
+        }
+        .sidebar {
+            width: 240px;
+            padding: 24px;
+        }
+        .menu-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .main {
+            flex: 1;
+            padding: 30px;
+        }
+        .panel {
+            display: none;
+        }
+        .panel.active {
+            display: block;
+        }
+        .card {
+            padding: 24px;
+            border-radius: 14px;
+            margin-top: 24px;
+        }
+        .result-box {
+            margin-top: 20px;
+            padding: 18px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #d1d5db;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+    </style>
 </head>
-<body style="font-family: Arial; padding: 40px;">
+<body>
+<div class="grip-container">
+    <!-- LOGIN SECTION -->
+    <div id="loginWrapper" class="grip-glass">
+        <h2>GRIP Portal Authentication</h2>
+        <input id="email" class="grip-input" type="email" placeholder="Email Address" />
+        <input id="password" class="grip-input" type="password" placeholder="Password" />
+        <button id="loginBtn" class="grip-btn">Enter Secure Dashboard</button>
+        <div id="statusBox">Awaiting authentication...</div>
+    </div>
 
-<h2>GRIP Login</h2>
-
-<input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password"><br><br>
-
-<button onclick="login()">Login</button>
-
-<p id="status"></p>
-
-<hr>
-
-<h2>Decision</h2>
-<input id="score" placeholder="Score"><br><br>
-
-<button onclick="runDecision()">Run Decision</button>
-
-<pre id="result"></pre>
+    <!-- APP CONTENT SECTION -->
+    <div id="app">
+        <div class="layout">
+            <!-- SIDEBAR NAVIGATION -->
+            <div class="sidebar grip-glass">
+                <h2 style="margin-bottom:30px;">GRIP SYSTEMS</h2>
+                <div class="menu-item" onclick="switchPanel('analysis')">Analysis</div>
+                <div class="menu-item" onclick="switchPanel('reports')">Reports</div>
+            </div>
+            <!-- MAIN DISPLAY WORKSPACE -->
+            <div class="main grip-glass">
+                <!-- ANALYSIS WORKBENCH -->
+                <div id="analysis" class="panel active">
+                    <h1>Decision Analysis Workbench</h1>
+                    <div class="card grip-glass">
+                        <h3 style="margin-bottom:20px;">Governance Verification Engine</h3>
+                        <input id="scoreInput" class="grip-input" type="number" min="0" max="100" placeholder="Enter score 0-100" />
+                        <button class="grip-btn" onclick="executeEvaluation()">Execute Governance Verification</button>
+                        <div id="resultBox" class="result-box">Awaiting execution...</div>
+                    </div>
+                </div>
+                <!-- COMPLIANCE ARCHIVE -->
+                <div id="reports" class="panel">
+                    <h1>Compliance Reports Archive</h1>
+                    <div class="card grip-glass">
+                        <p>Governance records available.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
-let TOKEN = null;
+    let GRIP_TOKEN = null;
+    // Base API Configuration - synchronized to current server environment
+    const API_BASE_URL = 'https://onrender.com';
 
-async function login(){
-    const status = document.getElementById("status");
+    function switchPanel(panelId){
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(panelId).classList.add('active');
+    }
 
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-
-    status.innerText = "Logging in...";
-
-    try {
-        const res = await fetch("/login", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({email, password})
-        });
-
-        const data = await res.json();
-
-        if(!res.ok){
-            throw new Error(data.detail);
+    document.getElementById('loginBtn').addEventListener('click', async function(){
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const statusBox = document.getElementById('statusBox');
+        
+        if(!email || !password){
+            statusBox.innerText = 'Please complete all fields.';
+            return;
         }
+        statusBox.innerText = 'Authenticating...';
+        
+        try{
+            const response = await fetch(`${API_BASE_URL}/login`, {
+                method:'POST',
+                headers:{
+                    'Content-Type':'application/json'
+                },
+                body: JSON.stringify({ email: email, password: password })
+            });
+            
+            const text = await response.text();
+            console.log("LOGIN RAW RESPONSE:", text);
+            
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error("Server returned HTML instead of JSON");
+            }
+            
+            if(!response.ok){
+                throw new Error(data.detail || 'Authentication failed.');
+            }
+            
+            GRIP_TOKEN = data.access_token;
+            if(!GRIP_TOKEN){
+                throw new Error("Login succeeded but token missing.");
+            }
+            
+            statusBox.innerText = 'Authentication successful.';
+            document.getElementById('loginWrapper').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+        } catch(err){
+            console.error(err);
+            statusBox.innerText = err.message;
+        }
+    });
 
-        TOKEN = data.access_token;
-        status.innerText = "✅ Logged in";
-
-    } catch(e){
-        status.innerText = "❌ " + e.message;
+    async function executeEvaluation(){
+        const resultBox = document.getElementById('resultBox');
+        const score = document.getElementById('scoreInput').value;
+        
+        if(!score){
+            resultBox.innerText = 'Please enter a valid score.';
+            return;
+        }
+        if(!GRIP_TOKEN){
+            resultBox.innerText = 'You must login first.';
+            return;
+        }
+        
+        resultBox.innerText = 'Executing governance analysis...';
+        
+        try{
+            const response = await fetch(`${API_BASE_URL}/decision`, {
+                method:'POST',
+                headers:{
+                    'Content-Type':'application/json',
+                    'Authorization':'Bearer ' + GRIP_TOKEN
+                },
+                body: JSON.stringify({ score: parseInt(score) })
+            });
+            
+            const text = await response.text();
+            console.log("RAW RESPONSE:", text);
+            const data = JSON.parse(text);
+            
+            if(!response.ok){
+                throw new Error(data.detail || 'Analysis failed.');
+            }
+            
+            resultBox.innerText = 'Verdict: ' + data.verdict + '\nReason: ' + data.rationale;
+        } catch(err){
+            console.error(err);
+            resultBox.innerText = err.message;
+        }
     }
-}
-
-async function runDecision(){
-    const result = document.getElementById("result");
-    const score = document.getElementById("score").value;
-
-    try{
-        const res = await fetch("/decision", {
-            method:"POST",
-            headers:{
-                "Content-Type":"application/json",
-                "Authorization":"Bearer " + TOKEN
-            },
-            body: JSON.stringify({score})
-        });
-
-        const data = await res.json();
-
-        result.innerText = JSON.stringify(data, null, 2);
-
-    } catch(e){
-        result.innerText = e.message;
-    }
-}
 </script>
-
 </body>
 </html>
