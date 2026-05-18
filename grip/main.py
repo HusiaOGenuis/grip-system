@@ -82,4 +82,3 @@ def decision(payload: dict):
 def home():
     with open("index.html") as f:
         return f.read()
-``
