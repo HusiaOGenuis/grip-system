@@ -1,71 +1,66 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>GRIP App</title>
-</head>
 <body style="font-family: Arial; padding: 40px;">
 
-    <h2>Login</h2>
-    <input id="email" placeholder="Email" type="email"><br><br>
-    <input id="password" type="password" placeholder="Password"><br><br>
-    <button onclick="login()">Login</button>
-    <p id="status"></p>
-    
-    <hr>
-    
-    <h2>Decision</h2>
-    <input id="score" placeholder="Score" type="number"><br><br>
-    <button onclick="runDecision()">Run Decision</button>
-    <pre id="result"></pre>
+<h2>Login</h2>
 
-    <script>
-        let TOKEN = null;
+<input id="email" type="email"><br><br>
+<input id="password" type="password"><br><br>
 
-        async function login() {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-            const status = document.getElementById("status");
-            status.innerText = "Logging in...";
-            
-            try {
-                const res = await fetch("/login", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-                
-                if (data.error) {
-                    status.innerText = " Error: " + data.message;
-                    return;
-                }
-                
-                TOKEN = data.access_token;
-                status.innerText = " Logged in successfully.";
-            } catch (e) {
-                status.innerText = " Error: " + e.message;
-            }
-        }
+<button onclick="login()">Login</button>
 
-        async function runDecision() {
-            const score = document.getElementById("score").value;
-            const result = document.getElementById("result");
-            
-            try {
-                const res = await fetch("/decision", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer " + TOKEN
-                    },
-                    body: JSON.stringify({ score })
-                });
-                const data = await res.json();
-                result.innerText = JSON.stringify(data, null, 2);
-            } catch (e) {
-                result.innerText = "Error: " + e.message;
-            }
-        }
-    </script>
+<p id="status"></p>
+
+<hr>
+
+<h2>Decision</h2>
+
+<input id="score" type="number"><br><br>
+<button onclick="runDecision()">Run Decision</button>
+
+<pre id="result"></pre>
+
+<script>
+let TOKEN = null;
+
+async function login() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const status = document.getElementById("status");
+
+    const res = await fetch("/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({email, password})
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+        status.innerText = data.message;
+        return;
+    }
+
+    TOKEN = data.access_token;
+    status.innerText = "Logged in ✅";
+}
+
+async function runDecision() {
+    const score = document.getElementById("score").value;
+
+    const res = await fetch("/decision", {
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json",
+            "Authorization":"Bearer " + TOKEN
+        },
+        body: JSON.stringify({score})
+    });
+
+    const data = await res.json();
+    document.getElementById("result").innerText = JSON.stringify(data, null, 2);
+}
+</script>
+
 </body>
 </html>

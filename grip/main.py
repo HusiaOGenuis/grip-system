@@ -64,45 +64,54 @@ def app_page():
 # -----------------------------
 @app.post("/login")
 def login(payload: dict = Body(...)):
-    res = requests.post(
-        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
-        headers={
-            "Content-Type": "application/json",
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-        },
-        json={
-            "email": payload.get("email"),
-            "password": payload.get("password"),
-        },
-    )
-    
     try:
+        res = requests.post(
+            f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+            headers={
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            },
+            json={
+                "email": payload.get("email"),
+                "password": payload.get("password"),
+            },
+        )
+
         data = res.json()
-    except Exception:
-        raise HTTPException(status_code=500, detail="Invalid response from Supabase")
-        
-    if res.status_code != 200:
+
+        if res.status_code != 200:
+            return {
+                "error": True,
+                "message": data.get("error_description", "Invalid credentials")
+            }
+
+        return {
+            "error": False,
+            "access_token": data.get("access_token")
+        }
+
+    except Exception as e:
         return {
             "error": True,
-            "message": data.get("error_description", "Invalid credentials")
+            "message": "Server error: " + str(e)
         }
-        
-    return {
-        "error": False,
-        "access_token": data.get("access_token")
-    }
-
 # -----------------------------
 # DECISION CORE ENGINE
 # -----------------------------
 @app.post("/decision")
 def decision(payload: dict):
-    score = int(payload.get("score", 0))
-    return {
-        "verdict": "APPROVED" if score > 50 else "REJECTED",
-        "rationale": f"Score evaluated: {score}"
-    }
+    try:
+        score = int(payload.get("score", 0))
+        return {
+            "verdict": "APPROVED" if score > 50 else "REJECTED",
+            "rationale": f"Score evaluated: {score}"
+        }
+    except Exception as e:
+        return {
+            "error": True,
+            "message": str(e)
+        }
 
 # -----------------------------
 # LEGAL POLICIES
