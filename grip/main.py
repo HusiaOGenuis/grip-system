@@ -1,5 +1,6 @@
 import os
 import requests
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,7 +66,7 @@ def landing():
 # -----------------------------
 @app.get("/app")
 def app_page():
-    return FileResponse("index.html")
+    return FileResponse("static/index.html")
 
 # -----------------------------
 # LOGIN
@@ -147,3 +148,8 @@ def show_structure():
         "cwd": os.getcwd(),
         "structure": structure
     }
+
+@app.get("/app")
+def app_page():
+    path = Path(__file__).parent.parent / "static" / "index.html"
+    return FileResponse(path)
