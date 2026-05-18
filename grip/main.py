@@ -83,12 +83,22 @@ def login(payload: dict = Body(...)):
         },
     )
 
-    data = res.json()
+    try:
+        data = res.json()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Invalid response from Supabase")
 
     if res.status_code != 200:
-        raise HTTPException(status_code=401, detail=data)
+        # ✅ force JSON-safe response
+        return {
+            "error": True,
+            "message": data.get("error_description", "Invalid credentials")
+        }
 
-    return {"access_token": data.get("access_token")}
+    return {
+        "error": False,
+        "access_token": data.get("access_token")
+    }
 
 # -----------------------------
 # DECISION
