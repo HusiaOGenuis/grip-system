@@ -185,7 +185,7 @@ Operational history not loaded.
    CENTRALIZED API TARGET
 ========================================================= */
 
-const API_BASE = "https://grip-execute.onrender.com";
+const API_BASE = "https://grip-dashboard.onrender.com";
 
 /* =========================================================
    SESSION MANAGEMENT

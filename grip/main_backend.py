@@ -1,33 +1,28 @@
 import os
-import requests
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Body, Depends, status
+from fastapi import FastAPI, Depends, Body, HTTPException, status
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
-# Env Configuration
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-print("DEBUG SUPABASE_URL:", SUPABASE_URL)
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing Supabase configuration settings.")
 
 app = FastAPI(title="GRIP Systems Backend", version="1.0.0")
 
-# Tighten CORS Configuration to eliminate wildcard vulnerabilities
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"]
-    #allow_origins=["http://localhost:8000"],  # Explicit domain control
+    allow_origins=["*"],  # TEMP (fix later)
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 security_scheme = HTTPBearer()
