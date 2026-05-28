@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRIP Systems Hub</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+body{
+    font-family:Arial, sans-serif;
+    background:#1e1e24;
+    color:#333;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:40px 20px;
+}
+
+h2{
+    color:#fff;
+    margin-bottom:10px;
+    text-align:center;
+}
+
+hr{
+    width:100%;
+    max-width:600px;
+    border:none;
+    height:1px;
+    background:#444;
+    margin-bottom:30px;
+}
+
+.section{
+    width:100%;
+    max-width:600px;
+    background:#fff;
+    padding:25px;
+    border-radius:10px;
+    margin-bottom:25px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+}
+
+h3{
+    margin-bottom:18px;
+    border-bottom:2px solid #eee;
+    padding-bottom:8px;
+}
+
+label{
+    display:block;
+    margin-top:12px;
+    margin-bottom:6px;
+    font-weight:bold;
+    font-size:0.9rem;
+    color:#555;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    border:1px solid #ccc;
+    border-radius:5px;
+    margin-bottom:10px;
+    font-size:1rem;
+}
+
+input:focus{
+    outline:none;
+    border-color:#0070f3;
+}
+
+button{
+    width:100%;
+    background:#0070f3;
+    color:white;
+    border:none;
+    padding:13px;
+    border-radius:5px;
+    font-size:1rem;
+    font-weight:bold;
+    cursor:pointer;
+    margin-top:12px;
+}
+
+button:hover{
+    background:#0058c7;
+}
+
+pre{
+    background:#111;
+    color:#00ff66;
+    padding:15px;
+    border-radius:6px;
+    overflow-x:auto;
+    margin-top:15px;
+    font-size:0.9rem;
+}
+
+#status{
+    margin-top:14px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.error{
+    color:#ff3333;
+}
+
+.success{
+    color:#00aa00;
+}
+
+.info{
+    color:#0070f3;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>GRIP Interactive Operations Platform</h2>
+<hr>
+
+<div class="section">
+
+    <h3>Operator Authorization</h3>
+
+    <label>Email Address</label>
+    <input id="email" type="email" placeholder="operator@grip-systems.com">
+
+    <label>Password</label>
+    <input id="password" type="password" placeholder="••••••••">
+
+    <button onclick="executeLogin()">
+        Authenticate Session
+    </button>
+
+    <p id="status"></p>
+
+</div>
+
+<div class="section">
+
+    <h3>Risk Evaluation Decision Engine</h3>
+
+    <label>Evaluation Score</label>
+    <input id="score" type="number" min="0" max="100">
+
+    <button onclick="runDecisionEngine()">
+        Execute Risk Evaluation
+    </button>
+
+    <pre id="result">
+No evaluations executed yet.
+    </pre>
+
+</div>
+
+<div class="section">
+
+    <h3>Operational History</h3>
+
+    <button onclick="getHistory()">
+        Load Evaluation History
+    </button>
+
+    <pre id="output">
+Operational history not loaded.
+    </pre>
+
+</div>
+
+<script>
+
+/* =========================================================
+   CENTRALIZED API TARGET
+========================================================= */
+
+const API_BASE = "https://grip-execute.onrender.com";
+
+/* =========================================================
+   SESSION MANAGEMENT
+========================================================= */
+
+let SESSION_TOKEN = localStorage.getItem("GRIP_TOKEN") || null;
+
+/* =========================================================
+   SAFE FETCH WRAPPER
+========================================================= */
+
+async function safeApiCall(endpoint, options = {}) {
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE}${endpoint}`,
+            options
+        );
+
+        const contentType = response.headers.get("content-type");
+
+        if (!contentType || !contentType.includes("application/json")) {
+
+            const text = await response.text();
+
+            console.error("Non-JSON response:", text);
+
+            return {
+                error: true,
+                message: "Server returned invalid response format."
+            };
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            return {
+                error: true,
+                message: data.detail || data.message || "Request failed."
+            };
+        }
+
+        return data;
+
+    } catch (err) {
+
+        console.error("Network trace:", err);
+
+        return {
+            error: true,
+            message: "Unable to reach GRIP backend infrastructure."
+        };
+    }
+}
+
+/* =========================================================
+   LOGIN FLOW
+========================================================= */
+
+async function executeLogin() {
+
+    const email = document.getElementById("email").value.trim();
+
+    const password = document.getElementById("password").value.trim();
+
+    const status = document.getElementById("status");
+
+    if (!email || !password) {
+
+        status.className = "error";
+        status.innerText = "Please complete all authentication fields.";
+
+        return;
+    }
+
+    status.className = "info";
+    status.innerText = "Authenticating against GRIP security gateway...";
+
+    const data = await safeApiCall("/api/login", {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+            email,
+            password
+        })
+    });
+
+    if (data.error) {
+
+        status.className = "error";
+        status.innerText = data.message;
+
+        return;
+    }
+
+    SESSION_TOKEN = data.access_token;
+
+    localStorage.setItem(
+        "GRIP_TOKEN",
+        SESSION_TOKEN
+    );
+
+    status.className = "success";
+
+    status.innerText =
+        "Authentication successful. Secure session established.";
+}
+
+/* =========================================================
+   DECISION ENGINE
+========================================================= */
+
+async function runDecisionEngine() {
+
+    const result = document.getElementById("result");
+
+    const score = document.getElementById("score").value;
+
+    if (!SESSION_TOKEN) {
+
+        result.innerText = JSON.stringify({
+            error: true,
+            message: "Please authenticate first."
+        }, null, 2);
+
+        return;
+    }
+
+    result.innerText = "Executing decision analysis...";
+
+    const data = await safeApiCall("/api/decision", {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SESSION_TOKEN}`
+        },
+
+        body: JSON.stringify({
+            score
+        })
+    });
+
+    result.innerText =
+        JSON.stringify(data, null, 2);
+}
+
+/* =========================================================
+   HISTORY ENGINE
+========================================================= */
+
+async function getHistory() {
+
+    const output = document.getElementById("output");
+
+    if (!SESSION_TOKEN) {
+
+        output.innerText = JSON.stringify({
+            error: true,
+            message: "Please authenticate first."
+        }, null, 2);
+
+        return;
+    }
+
+    output.innerText = "Loading operational history...";
+
+    const data = await safeApiCall("/api/history", {
+
+        method: "GET",
+
+        headers: {
+            "Authorization": `Bearer ${SESSION_TOKEN}`
+        }
+    });
+
+    output.innerText =
+        JSON.stringify(data, null, 2);
+}
+
+</script>
+
+</body>
+</html>

@@ -13,6 +13,7 @@ load_dotenv(env_path)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+print("DEBUG SUPABASE_URL:", SUPABASE_URL)
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing Supabase configuration settings.")
@@ -22,7 +23,8 @@ app = FastAPI(title="GRIP Systems Backend", version="1.0.0")
 # Tighten CORS Configuration to eliminate wildcard vulnerabilities
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000"],  # Explicit domain control
+    allow_origins=["*"]
+    #allow_origins=["http://localhost:8000"],  # Explicit domain control
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
@@ -132,14 +134,47 @@ def login(payload: dict = Body(...)):
 def decision(payload: dict = Body(...), user: dict = Depends(verify_user_token)):
     try:
         score = int(payload.get("score", 0))
+        verdict = "APPROVED" if score > 50 else "REJECTED"
+
+        decision_data = {
+            "user_email": user.get("email"),
+            "score": score,
+            "verdict": verdict,
+            "rationale": f"Score evaluated: {score}"
+        }
+
+        # 🔥 STORE IN SUPABASE
+        res = requests.post(
+            f"{SUPABASE_URL}/rest/v1/decisions",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            },
+            json=decision_data
+        )
+
         return {
             "error": False,
-            "verdict": "APPROVED" if score > 50 else "REJECTED",
-            "rationale": f"Score evaluated: {score}",
-            "evaluated_by": user.get("email")
+            **decision_data,
+            "stored": res.status_code == 201
         }
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="Invalid score format. Must be an integer computation.")
+
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid score format.")
+
+@app.get("/api/history")
+def history(user: dict = Depends(verify_user_token)):
+    res = requests.get(
+        f"{SUPABASE_URL}/rest/v1/decisions?user_email=eq.{user.get('email')}&order=created_at.desc",
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        }
+    )
+
+    return res.json()
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms():
