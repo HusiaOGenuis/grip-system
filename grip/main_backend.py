@@ -1,4 +1,5 @@
 import os
+import requests
 from pathlib import Path
 from fastapi import FastAPI, Depends, Body, HTTPException, status
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
