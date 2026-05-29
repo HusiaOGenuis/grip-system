@@ -130,6 +130,16 @@ def login(payload: dict = Body(...)):
         return {"error": True, "message": f"Connection error to authentication gateway: {str(e)}"}
 
 # Secure Decision Engine (Access Restricted via Dependency Token validation)
+
+@app.get("/api/debug-auth")
+def debug_auth():
+
+    return {
+        "SUPABASE_URL": SUPABASE_URL,
+        "HAS_KEY": bool(SUPABASE_KEY),
+        "KEY_LENGTH": len(SUPABASE_KEY or "")
+    }
+
 @app.post("/api/decision")
 def decision(payload: dict = Body(...), user: dict = Depends(verify_user_token)):
     try:
