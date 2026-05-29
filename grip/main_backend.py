@@ -118,7 +118,11 @@ def login(payload: dict = Body(...)):
             return {"error": True, "message": "Malformed response payload from identity provider."}
 
         if res.status_code != 200:
-            return {"error": True, "message": data.get("error_description", "Authentication failed.")}
+        return {
+            "error": True,
+            "supabase_status": res.status_code,
+            "supabase_response": res.text
+        }
 
         return {"error": False, "access_token": data.get("access_token")}
 
